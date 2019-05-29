@@ -17,6 +17,36 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// skew_eval_cpp
+NumericVector skew_eval_cpp(double mode, NumericVector h, double mu, double omega, NumericVector z);
+RcppExport SEXP _RHESSIAN_skew_eval_cpp(SEXP modeSEXP, SEXP hSEXP, SEXP muSEXP, SEXP omegaSEXP, SEXP zSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type mode(modeSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type h(hSEXP);
+    Rcpp::traits::input_parameter< double >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< double >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type z(zSEXP);
+    rcpp_result_gen = Rcpp::wrap(skew_eval_cpp(mode, h, mu, omega, z));
+    return rcpp_result_gen;
+END_RCPP
+}
+// skew_draw_cpp
+NumericVector skew_draw_cpp(double mode, NumericVector h, double mu, double omega, int n_draws);
+RcppExport SEXP _RHESSIAN_skew_draw_cpp(SEXP modeSEXP, SEXP hSEXP, SEXP muSEXP, SEXP omegaSEXP, SEXP n_drawsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type mode(modeSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type h(hSEXP);
+    Rcpp::traits::input_parameter< double >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< double >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< int >::type n_draws(n_drawsSEXP);
+    rcpp_result_gen = Rcpp::wrap(skew_draw_cpp(mode, h, mu, omega, n_draws));
+    return rcpp_result_gen;
+END_RCPP
+}
 // spline_eval_cpp
 NumericVector spline_eval_cpp(NumericVector p, NumericVector m, NumericVector u);
 RcppExport SEXP _RHESSIAN_spline_eval_cpp(SEXP pSEXP, SEXP mSEXP, SEXP uSEXP) {
@@ -46,6 +76,8 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_RHESSIAN_alias_cpp", (DL_FUNC) &_RHESSIAN_alias_cpp, 2},
+    {"_RHESSIAN_skew_eval_cpp", (DL_FUNC) &_RHESSIAN_skew_eval_cpp, 5},
+    {"_RHESSIAN_skew_draw_cpp", (DL_FUNC) &_RHESSIAN_skew_draw_cpp, 5},
     {"_RHESSIAN_spline_eval_cpp", (DL_FUNC) &_RHESSIAN_spline_eval_cpp, 3},
     {"_RHESSIAN_spline_draw_cpp", (DL_FUNC) &_RHESSIAN_spline_draw_cpp, 3},
     {NULL, NULL, 0}

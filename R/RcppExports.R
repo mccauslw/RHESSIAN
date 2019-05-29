@@ -12,6 +12,34 @@ alias_cpp <- function(x, n_draws) {
     .Call(`_RHESSIAN_alias_cpp`, x, n_draws)
 }
 
+#' Call skew_eval_c function in skew.c
+#'
+#' @param mode A scalar, the mode of the target distribution
+#' @param h A vector, the first five derivatives of the log target distribution
+#' @param mu A scalar, the prior mean
+#' @param omega A scalar, the prior precision
+#' @param z A vector of points of evaluation
+#' @return
+#' A vector of evaluations of the log normalized target density
+#' @export
+skew_eval_cpp <- function(mode, h, mu, omega, z) {
+    .Call(`_RHESSIAN_skew_eval_cpp`, mode, h, mu, omega, z)
+}
+
+#' Call skew_draw_c function in skew.c
+#'
+#' @param mode A scalar, the mode of the target distribution
+#' @param h A vector, the first five derivatives of the log target distribution
+#' @param mu A scalar, the prior mean
+#' @param omega A scalar, the prior precision
+#' @param n_draws A scalar integer, the number of draws to make
+#' @return
+#' A vector of draws from the target distribution
+#' @export
+skew_draw_cpp <- function(mode, h, mu, omega, n_draws) {
+    .Call(`_RHESSIAN_skew_draw_cpp`, mode, h, mu, omega, n_draws)
+}
+
 #' Call C language spline_eval_c function
 #'
 #' @param p A vector of levels on grid

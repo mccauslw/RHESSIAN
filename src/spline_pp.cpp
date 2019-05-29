@@ -21,8 +21,8 @@ extern "C" {
 //' @export
 // [[Rcpp::export]]
 NumericVector spline_eval_cpp(NumericVector p, NumericVector m, NumericVector u) {
-  NumericVector f_u(spline_eval_c(p, m, u));
-  return f_u;
+  NumericVector f(spline_eval_c(p, m, u));
+  return f;
 }
 
 //' Call C language spline_draw_c function
