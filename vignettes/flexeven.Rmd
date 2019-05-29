@@ -198,7 +198,7 @@ Here is R code providing a function evaluating $g_u(u)$, followed by code that s
 # and p and m are vectors of values and derivatives at knots.
 # Derivatives should already be transformed to suit the interval [0,1].
 g.eval = function(u, p, m) {
-  n = length(p) - 1    # Number of knots
+  n = length(p) - 1    # Number of subintervals
   i = floor(u*n)       # Subinterval index in {0,1,...,n-1}
   t = u*n - i          # index of u in subinterval [i/n, (i+1)/n]
   c0 = p[i+1]          # Subinterval spline
@@ -253,8 +253,8 @@ Then set $u=(i+t)/n$.
 
 ```{r fu_draw, cache=TRUE}
 f.draw = function(p, m, pmf) {
-  n = length(p) - 1
-  k = sample.int(n+1, 1, prob=pmf)
+  n = length(p) - 1                # Number of subintervals
+  k = sample.int(n+1, 1, prob=pmf) # Random knot
   if (k==1) {
     i = 1
     if (runif(1) < 3*p[1]/(6*p[1]+m[1]))
@@ -292,7 +292,7 @@ hist(replicate(1000000, f.draw(p, m, pmf)), 40, main='Histogram of sample from s
 
 ```{r fu_eval05}
 h.eval.05 = function(u, p, m, p05, m05) {
-  n = length(p) - 1    # Number of knots
+  n = length(p) - 1    # Number of subintervals
   i = floor(u*n)       # Subinterval index in {0,1,...,n-1}
   t = u*n - i          # index of u in subinterval [i/2, (i+1)/n]
   c0 = p[i+1]          # Subinterval spline
