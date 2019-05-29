@@ -1,7 +1,11 @@
+#include <R.h>
+#include <Rinternals.h>
+
 #include <stdlib.h>
 #include <math.h>
 #include "new_skew.h"
 #include "alias.h"
+#include "spline.h"
 #include "RNG.h"
 #include "Phi.h"
 
@@ -98,83 +102,6 @@ static void grid_free(Grid *grid)
 	free(grid->z_minus);
 }
 
-static double spline_eval(double u, Grid *grid) {
-	int n = grid->n_knots;
-	int i = floor(u*n);	     // Subinterval index in {0,1,...,n-1}
-	double t = u*n - i;      // index of u in subinterval [i/n, (i+1)/n]
-	double c0 = grid->p[i];  // Constant coefficient in subinterval spline
-	double c1 = grid->m[i];  // Coefficient of t
-	double c2 = -3*c0 - 2*c1 + 3*grid->p[i+1] - grid->m[i+1]; // Coefficient of t^2
-	double c3 = 2*c0 + c1 - 2*grid->p[i+1] + grid->m[i+1];    // Coefficient of t^3
-	return (((c3*t+c2)*t+c1)*t+c0);
-}
-
-static inline double rbeta_4_1()
-{
-  int i;
-  double U[4];
-  for (i=0; i<4; i++)
-    U[i] = rng_rand();
-  for (i=0; i<3; i++) {
-    if(U[i] > U[i+1]) {
-      U[i+1] = U[i];
-    }
-  }
-  return U[3]; // Largest U(0,1) of four
-}
-
-static inline double rbeta_3_2()
-{
-  int i, last;
-  double U[4];
-  for (i=0; i<4; i++)
-    U[i] = rng_rand();
-  for (last = 3; last >= 2; last--) {
-    for (i=0; i<last; i++) {
-      if(U[i] > U[i+1]) {
-        double temp = U[i];
-        U[i] = U[i+1];
-        U[i+1] = temp;
-      }
-    }
-  }
-  return U[2]; // 2nd largest U(0,1) of four
-}
-
-static inline double rbeta_1_4() {return 1-rbeta_4_1();}
-static inline double rbeta_2_3() {return 1-rbeta_3_2();}
-
-static double spline_draw(Grid *grid)
-{
-	int k, n_bins = grid->n_bins, n_knots = grid->n_knots;
-  double t;
-	double *m = grid->m;
-	double *p = grid->p;
-	draw_discrete(n_knots, p, 1, &k);
-	if (k==0) {
-		if (rng_rand() < 3*p[0]/(6*p[0]+m[0]))
-			t = rbeta_1_4();
-		else
-			t = rbeta_2_3();
-	}
-	else if (k==n_bins) {
-		if (rng_rand() < 3*p[n_bins]/(6*p[n_bins]-m[n_bins]))
-			t = rbeta_4_1();
-		else
-			t = rbeta_3_2();
-	}
-	else {
-		t = rng_rand();
-		if (rng_rand() < t*t*(3-2*t))
-			t = 1-t;
-		if (rng_rand() > (p[k]*(1+2*t) + m[k]*t) / (2*p[k]*(1+2*t))) {
-			k = k-1;
-			t = 1-t;
-		}
-	}
-	return (k+t)/n_bins;
-}
-
 // Compute r'(x), derivative of r(x) = c exp(phi_e(x)) cosh phi_o(x)
 static void compute_r_prime(int k, double *a, Grid *grid)
 {
@@ -243,7 +170,7 @@ void skew_draw_eval(Skew_parameters *skew, Grid *grid)
 
 	// Draw u, generate v then z
 	if (skew->is_draw) {
-		u = spline_draw(grid);
+		spline_draw(grid->n_knots, grid->p, grid->m, 1, &u);
 		v = inverse_F_v(u);
 		x = inverse_Phi(0.5 + 0.5*v);
 		if (rng_rand() * (1+exp(2*phi_o)) < 1.0)
@@ -252,7 +179,9 @@ void skew_draw_eval(Skew_parameters *skew, Grid *grid)
 	}
 
 	// Compute evaluations
-	skew->log_density = log(spline_eval(u, grid));
+	double f_u;
+	spline_eval(grid->n_knots, grid->p, grid->m, 1, &u, &f_u);
+	skew->log_density = log(f_u);
 	skew->log_density += ln_f_v(v);
 	skew->log_density += log_root_2_by_pi - 0.5*x*x;
 }

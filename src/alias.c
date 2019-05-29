@@ -6,33 +6,37 @@
 
 // Vose's Alias Method to draw a discrete random variable
 #define max_n 100
-void draw_discrete(int n, double *p, int n_draws, int *draws)
+
+void draw_discrete_from_alias_tables(int n, int *Alias, double *Prob, int n_draws, int *draws)
 {
-  int i, l, g;
-  int i_draw;
+  int i, k;
+  for (i=0; i<n_draws; i++) {
+    k = floor(n * rng_rand());
+    draws[i] = (rng_rand() < Prob[k]) ? k : Alias[k];
+  }
+}
+
+void alias_tables(int n, double *p, int *Alias, double *Prob)
+{
+  int k, l, g;
   double sum = 0.0;
   double P[max_n]; // Normalized probabilities times n
-  rng_init_rand(5489UL);
-
-  // 1. Create arrays alias and prob
-  int Alias[max_n];
-  double Prob[max_n];
 
   // 2. Create two worklists, Small and Large
   int Large[max_n]; int n_Large = 0;
   int Small[max_n]; int n_Small = 0;
 
   // 3. Multiply each probability by n
-  for (i=0; i<n; i++)
-    sum += p[i];
-  for (i=0; i<n; i++)
-    P[i] = p[i] * n / sum;
+  for (k=0; k<n; k++)
+    sum += p[k];
+  for (k=0; k<n; k++)
+    P[k] = p[k] * n / sum;
 
-  // 4. For each scaled probability P[i]:
-  //    (a) if P[i] < 1, add i to Small;
+  // 4. For each scaled probability P[k]:
+  //    (a) if P[k] < 1, add i to Small;
   //    (b) otherwise add i to Large
-  for (i=0; i<n; i++)
-    if (P[i] < 1) Small[n_Small++] = i; else Large[n_Large++] = i;
+  for (k=0; k<n; k++)
+    if (P[k] < 1) Small[n_Small++] = k; else Large[n_Large++] = k;
 
   // 5. While Small and Large are not empty:
   for (; n_Large > 0 && n_Small > 0; ) {
@@ -60,12 +64,14 @@ void draw_discrete(int n, double *p, int n_draws, int *draws)
     P[Small[--n_Small]] = 1.0;
     Alias[Small[n_Small]] = Small[n_Small];
   }
+}
 
-  // Generation
-  for (i_draw=0; i_draw<n_draws; i_draw++) {
-    i = floor(n * rng_rand());
-    draws[i_draw] = (rng_rand() < Prob[i]) ? i : Alias[i];
-  }
+void draw_discrete(int n, double *p, int n_draws, int *draws)
+{
+  int Alias[max_n];
+  double Prob[max_n];
+  alias_tables(n, p, Alias, Prob);
+  draw_discrete_from_alias_tables(n, Alias, Prob, n_draws, draws);
 }
 
 SEXP alias_c(SEXP p, int n_draws) {

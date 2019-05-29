@@ -12,3 +12,27 @@ alias_cpp <- function(x, n_draws) {
     .Call(`_RHESSIAN_alias_cpp`, x, n_draws)
 }
 
+#' Call C language spline_eval_c function
+#'
+#' @param p A vector of levels on grid
+#' @param m A vector of derivatives on grid
+#' @param u A vector of values at which to evaluate a spline density
+#' @return
+#' The vector of spline density values
+#' @export
+spline_eval_cpp <- function(p, m, u) {
+    .Call(`_RHESSIAN_spline_eval_cpp`, p, m, u)
+}
+
+#' Call C language spline_draw_c function
+#'
+#' @param p A vector of levels on grid
+#' @param m A vector of derivatives on grid
+#' @param n_draws The number of draws to make from the spline density
+#' @return
+#' The vector of spline density draws
+#' @export
+spline_draw_cpp <- function(p, m, n_draws) {
+    .Call(`_RHESSIAN_spline_draw_cpp`, p, m, n_draws)
+}
+

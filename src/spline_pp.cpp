@@ -21,8 +21,8 @@ extern "C" {
 //' @export
 // [[Rcpp::export]]
 NumericVector spline_eval_cpp(NumericVector p, NumericVector m, NumericVector u) {
-  NumericVector result(spline_eval_c(p, m, u));
-  return result;
+  NumericVector f_u(spline_eval_c(p, m, u));
+  return f_u;
 }
 
 //' Call C language spline_draw_c function
@@ -33,10 +33,10 @@ NumericVector spline_eval_cpp(NumericVector p, NumericVector m, NumericVector u)
 //' @return
 //' The vector of spline density draws
 //' @export
-//' [[Rcpp::export]]
+// [[Rcpp::export]]
 NumericVector spline_draw_cpp(NumericVector p, NumericVector m, int n_draws) {
-  NumericVector result(spline_draw_c(p, m, n_draws));
-  return result;
+  NumericVector draws(spline_draw_c(p, m, n_draws));
+  return draws;
 }
 
 /*** R
