@@ -23,15 +23,18 @@ const double f_u_0 = delta_dual;
 const double fp_u_0 = -delta * delta_dual * delta_dual;
 
 // These depend only on n_knots and use_delta
-static double u[max_knots];
-static double v[max_knots];
-static double z[max_knots];
-static double f_v[max_knots];
-static double f_v_prime[max_knots];
-static double z_plus[max_h+1];
-static double z_minus[max_h+1];
+static double u[6];
+static double v[6];
+static double z[6];
+static double f_v[6];
+static double f_v_prime[6];
+static double z_plus[36];
+static double z_minus[36];
 
-/* These depend on the current target parameters, and have values at all grid points
+static Grid g = {6, u, v, z, f_v, f_v_prime, z_plus, z_minus};
+
+/* These depend on the current target parameters, and have values at all grid
+ * points.
  */
 // p and m and parameters of the spline density
 static double p[max_knots]; // Spline values (levels)
