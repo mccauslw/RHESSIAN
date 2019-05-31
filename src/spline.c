@@ -48,13 +48,13 @@ static inline double rbeta_2_3() {return 1-rbeta_3_2();} // Draw a beta(2, 3) va
 
 void spline_eval(int n_knots, double *p, double *m, int n_evals, double *u, double *f_u)
 {
-  int i, b, n_bins = n_knots-1;
+  int i, b, K = n_knots-1;
   double c0, c1, c2, c3, t;
   for (i=0; i<n_evals; i++) {
-    b = floor(u[i]*n_bins);  // Bin (subinterval) index in {0,1,...,n-1}
-    t = u[i]*n_bins - b;     // index of u in subinterval [i/n, (i+1)/n]
-    c0 = p[b];               // Constant coefficient in subinterval spline
-    c1 = m[b];               // Coefficient of t
+    b = floor(u[i]*K);  // Bin (subinterval) index in {0,1,...,n-1}
+    t = u[i]*K - b;     // index of u in subinterval [i/n, (i+1)/n]
+    c0 = p[b];          // Constant coefficient in subinterval spline
+    c1 = m[b];          // Coefficient of t
     c2 = -3*c0 - 2*c1 + 3*p[b+1] - m[b+1]; // Coefficient of t^2
     c3 = 2*c0 + c1 - 2*p[b+1] + m[b+1];    // Coefficient of t^3
     f_u[i] = (((c3*t+c2)*t+c1)*t+c0);
@@ -66,10 +66,10 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
   double pmf[max_n];
   int Alias[max_n];
   double Prob[max_n];
-  int i, k, n_bins = n_knots-1;
+  int i, k, K = n_knots-1;
   memcpy(pmf, p, n_knots*sizeof(double));
   pmf[0] = p[0]/2 + m[0]/12;
-  pmf[n_bins] = p[n_bins]/2 - m[n_bins]/12;
+  pmf[K] = p[K]/2 - m[K]/12;
   alias_tables(n_knots, pmf, Alias, Prob);
   for (i=0; i<n_draws; i++) {
     draw_discrete_from_alias_tables(n_knots, Alias, Prob, 1, &k); // Draw random knot
@@ -80,9 +80,9 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
       else
         t = rbeta_2_3();
     }
-    else if (k==n_bins) {
+    else if (k==K) {
       k = k-1;
-      if (rng_rand() < 3*p[n_bins]/(6*p[n_bins]-m[n_bins]))
+      if (rng_rand() < 3*p[K]/(6*p[K]-m[K]))
         t = rbeta_4_1();
       else
         t = rbeta_3_2();
@@ -96,7 +96,7 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
         t = 1-t;
       }
     }
-    u[i] = (k+t)/n_bins;
+    u[i] = (k+t)/K;
   }
 }
 
