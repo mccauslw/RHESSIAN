@@ -94,29 +94,14 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
   for (i=0; i<n_draws; i++) {
     draw_discrete_from_alias_tables(n_knots, Alias, Prob, 1, &k); // Draw random knot
     double t;
-    if (k==0) {
-      if (rng_rand() < 3*p[0]/(6*p[0]+m[0]))
-        t = rbeta_1_4();
-      else
-        t = rbeta_2_3();
-    }
+    if (k==0)
+      t = (rng_rand() < 3*p[0]/(6*p[0]+m[0])) ? rbeta_1_4() : rbeta_2_3();
     else if (k==K) {
       k = k-1;
-      if (rng_rand() < 3*p[K]/(6*p[K]-m[K]))
-        t = rbeta_4_1();
-      else
-        t = rbeta_3_2();
+      t = (rng_rand() < 3*p[K]/(6*p[K]-m[K])) ? rbeta_4_1() : rbeta_3_2();
     }
-    else {
+    else
       t = inner_t_draw(p[k], m[k]); // t may be negative (projecting into previous bin)
-//      t = rng_rand();
-//      if (rng_rand() < t*t*(3-2*t))
-//        t = 1-t;
-//      if (rng_rand() > (p[k]*(1+2*t) + m[k]*t) / (2*p[k]*(1+2*t))) {
-//        k = k-1;
-//        t = 1-t;
-//      }
-    }
     u[i] = (k+t)/K;
   }
 }
