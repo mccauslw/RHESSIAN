@@ -15,8 +15,8 @@
 
 // Used options(digits=22), log(sqrt(2/pi)) in R
 const double log_root_2_by_pi = -0.2257913526447273833142;
-const double f_u_0 = 2.0;
-const double fp_u_0 = -2.0;
+const double p_0 = 2.0;
+const double m_0K = -2.0; // Gives m_0 when m_0K/K normalization is computed.
 const int n_powers = 5;
 extern Grid g6;
 
@@ -26,6 +26,7 @@ extern Grid g6;
 // p and m and parameters of the spline density
 static double p[max_knots]; // Spline values (levels)
 static double m[max_knots]; // Spline derivatives, normalized for t in [0,1]
+static double pi[max_knots]; // Component probabilities
 
 // phi(z) is a function approximating the log of the target density.
 // phi(z) = phi+(z) when z is positive, phi-(-z) when z is negative
@@ -40,16 +41,15 @@ static double exp_phi_minus[max_knots];
 static double r[max_knots];
 static double r_prime[max_knots];
 
-//static double f_e_plus_prime[max_knots];
-//static double f_u[max_knots];
-//static double ratio[max_knots];
-//static double f_even[max_knots];
-
 // Functions related to F_v(v) = 1-(1-v)^delta, for delta=0.5
 static inline double inverse_F_v(double u) {return 1.0-(1.0-u)*(1.0-u);}
 static inline double F_v(double v) {return 1.0 - sqrt((1.0-v));}
 static inline double f_v(double v) {return 0.5 / sqrt(1.0-v);}
 static inline double ln_f_v(double v) {return log(0.5) - 0.5*log(1.0-v);}
+
+#ifndef max
+static inline double max(double a, double b) {return (a>b) ? a : b;}
+#endif
 
 static void grid_initialize(int use_delta, Grid *g)
 {
@@ -74,8 +74,7 @@ static void grid_initialize(int use_delta, Grid *g)
 
 static double sigma[max_h+1], a[max_h+1];
 
-// Compute r'(x), derivative of r(x) = c exp(phi_e(x)) cosh phi_o(x)
-// This function needs to be called only for the knot value that is
+// Compute m_k. Needs to be called only for second last knot and value that is
 // actually drawn.
 static double compute_m_k(int k, Grid *g)
 {
@@ -84,6 +83,7 @@ static double compute_m_k(int k, Grid *g)
   // phi'(z) = phi'+(z) when z is postive, phi'(z) = phi'-(-z) when z is negative
   // phi_plus_prime and phi_minus_prime are the derivatives of phi_plus, phi_minus
   double phi_plus_prime = 0.0, phi_minus_prime = 0.0;
+  if (k==0) return m_0K / g->K;
   for (i=1; i<=4; i++) {
     phi_plus_prime += a[i+1] * g->z_plus[k + i*K];
     phi_minus_prime += a[i+1] * g->z_minus[k + i*K];
@@ -93,6 +93,14 @@ static double compute_m_k(int k, Grid *g)
   double m_k = r_prime - p[k] * g->f_v_prime[k];
   m_k /= g->K * g->f_v[k] * g->f_v[k];
   return m_k;
+}
+
+// Compute odd part of phi function
+static inline double phi_odd(double z)
+{
+  double z2 = z*z;
+  double z3 = z2 * z;
+  return ((a[5]/120 * z2) + z3/6) * z3;
 }
 
 void skew_draw_eval(double mode, double *h, double mu, double omega,
@@ -115,7 +123,7 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
     a[i] = sigma[i] * h[i];
 
   // Evalute level p[k] f_even at all grid points k=0,1,...,K
-  p[0] = f_u_0;
+  p[0] = p_0;
   for (k=0; k<=K; k++) {
     phi_plus[k] = phi_minus[k] = 0.0;
     for (i=2; i<=5; i++) {
@@ -129,20 +137,22 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
   }
 
   // Compute knot probabilities and normalization constant.
-  double sum = 0.5 * f_u_0 - fp_u_0/12.0; // Contribution of first knot
+  double m_Km1 = compute_m_k(K-1, g);
+  double p_Delta = max(0, p[K] - 0.5*p[K-1] - 0.125*m_Km1);
+  double sum = (pi[0] = p[0]/2 - m[0]/12); // Contribution of first knot
   for (k=1; k<K; k++)
-    sum += p[k];
-  sum += 0.0; // Contribution of last knot.
+    sum += (pi[k] = p[k]);
+  sum += (pi[K] = p_Delta/2); // Contribution of last knot.
 
   for (draw=0; draw<n; draw++) {
-    double phi_o;
+    double phi_o; // Odd part of phi function
 
     // Normalize and draw or compute knot index.
-    if (is_draw) {
-      // WJM: draw k
-    }
+    if (is_draw)
+      draw_discrete(K+1, pi, 1, &k);
     else {
       x = (z[draw] - mode)/sigma[1];
+      phi_o = phi_odd(x);
       v = 2*Phi(x)-1;
       u = F_v(v);
       k = floor(K*u);
@@ -157,6 +167,7 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
       spline_draw(K, p, m, 1, &u);
       v = inverse_F_v(u);
       x = inverse_Phi(0.5 + 0.5*v);
+      phi_o = phi_odd(x);
       if (rng_rand() * (1+exp(2*phi_o)) < 1.0)
         x = -x;
       z[draw] = x*sigma[1] + mode;
@@ -167,6 +178,7 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
     spline_eval(K, p, m, 1, &u, &f_u);
     ln_f[draw] = log(f_u);
     ln_f[draw] += ln_f_v(v);
+    ln_f[draw] += phi_o;
     ln_f[draw] += log_root_2_by_pi - 0.5*x*x;
   }
 }
