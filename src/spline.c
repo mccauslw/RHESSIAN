@@ -61,6 +61,26 @@ void spline_eval(int n_knots, double *p, double *m, int n_evals, double *u, doub
   }
 }
 
+double inner_t_draw(double p_k, double m_k)
+{
+  double t = rng_rand();
+  double U = rng_rand();
+  double Pr_comp = t*t*(3-2*t);
+  double positive_threshold;
+  // This code avoids an extra U(0, 1) draw.
+  // Equivalent procedure that is easier to understand is
+  // (1) Replace t = 1-t with probability t*t*(3-2*t). (otherwise leave it alone).
+  // (2) Keep positive with probability (p_k*(3-2*t) + m_k*(1-t)) / (2*p_k*(3-2*t))
+  //     computed *after* possible replacement of t by 1-t. (otherwise negate t)
+  if (U < Pr_comp) {
+    t = 1-t;
+    positive_threshold = Pr_comp * (p_k*(1+2*t) + m_k*t) / (2*p_k*(1+2*t));
+  }
+  else
+    positive_threshold = Pr_comp + (1-Pr_comp) * (p_k*(1+2*t) + m_k*t) / (2*p_k*(1+2*t));
+  return (U < positive_threshold) ? t : -t;
+}
+
 void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
 {
   double pmf[max_n];
@@ -88,13 +108,14 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
         t = rbeta_3_2();
     }
     else {
-      t = rng_rand();
-      if (rng_rand() < t*t*(3-2*t))
-        t = 1-t;
-      if (rng_rand() > (p[k]*(1+2*t) + m[k]*t) / (2*p[k]*(1+2*t))) {
-        k = k-1;
-        t = 1-t;
-      }
+      t = inner_t_draw(p[k], m[k]); // t may be negative (projecting into previous bin)
+//      t = rng_rand();
+//      if (rng_rand() < t*t*(3-2*t))
+//        t = 1-t;
+//      if (rng_rand() > (p[k]*(1+2*t) + m[k]*t) / (2*p[k]*(1+2*t))) {
+//        k = k-1;
+//        t = 1-t;
+//      }
     }
     u[i] = (k+t)/K;
   }
