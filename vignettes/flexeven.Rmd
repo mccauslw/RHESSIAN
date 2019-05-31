@@ -505,20 +505,31 @@ These quantities depend on $\omega$, $h_2,\ldots,h_5$ and pre-computed quantitie
 1. $p_0,\ldots,p_K$, $m_0$ and $m_K$
 $$ p_0 = 2, \quad p_K = 0, \quad m_0 = -2/K, \quad m_K = 0, $$
 $$ p_k = \frac{\exp(\varphi(z_k)) + \exp(\varphi(-z_k))}{2f_v(v_k)}, \quad k=1,\ldots,K-1. $$
-1. 
-
-## Computation if drawing
-1. Draw $k^*$ from discrete distribution.
-1. $m_{k^*}$
+1. Compute $m_{K-1}$ using \eqref{e:mk}
 \begin{equation}\label{e:mk}
-m_{k^*} = \frac{1}{Kf_v^2(v_{k^*})} \left[
-\frac{\exp(\varphi(z_{k^\star})) \varphi'(z_{k^\star}) + \exp(\varphi(-z_{k^\star})) \varphi'(-z_{k^\star})}{2} - p_{k^*} f_v'(v_{k^*})
+m_k = \frac{1}{Kf_v^2(v_k})} \left[
+\frac{\exp(\varphi(z_k)) \varphi'(z_k) + \exp(\varphi(-z_k)) \varphi'(-z_k)}{2} - p_k f_v'(v_k)
 \right].
 \end{equation}
+1. Compute $p_\Delta$
+\[
+  p_\Delta = \max\left(0, p_K - \frac{1}{2}p_{K-1} - \frac{1}{8} m_{K-1}\right);
+\]
+
+## Computation if drawing
+1. Draw $k^*$ from discrete distribution with probabilities
+\[
+  \pi_k = \begin{cases}
+    p_0/2 + m_0/12 & k=0 \\
+    p_k & 1 < k < K \\
+    p_\Delta/2 & k = K
+  \end{cases}
+\]
+1. Compute $m_{k^*}$ using \eqref{e:mk}.
 1. Draw $t$ and adjust $k$ and $t$ if necessary.
 1. $u=(k+t)/K$.
 1. $v = F_v^{-1}(u)$.
-1. $z = \Phi_+^{-1}(v)$ or $z = \Phi_+^{-1}(u)$.
+1. $z = \Phi_+^{-1}(v)$
 
 ## Computation if only evaluating
 1. $v = \Phi_+(z)$.
