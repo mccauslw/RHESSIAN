@@ -51,27 +51,6 @@ static inline double ln_f_v(double v) {return log(0.5) - 0.5*log(1.0-v);}
 static inline double max(double a, double b) {return (a>b) ? a : b;}
 #endif
 
-static void grid_initialize(int use_delta, Grid *g)
-{
-  int K = g->K;
-  int k, i;
-  for (k=0; k<K; k++) {
-    // Compute u and various transformation of it at the grid points
-    g->u[k] = (k==K-1) ? ((double) k)/K : 1 - 0.5/K;
-    g->v[k] = inverse_F_v(g->u[k]);
-    g->z[k] = inverse_Phi(0.5 + 0.5*g->v[k]);
-    g->f_v[k] = f_v(g->v[k]);
-    g->f_v_prime[k] = 0.5 * g->f_v[k] / (1-g->v[k]);
-
-    // Precompute powers of z and -z at current knot.
-    g->z_plus[k] = g->z_minus[k] = 1.0;
-    for (i=1; i<=n_powers; i++) {
-      g->z_plus[k + i*K] = g->z_plus[k + (i-1)*K] * g->z[k] / i;
-      g->z_minus[k + i*K] = g->z_minus[k + (i-1)*K] * -g->z[k] / i;
-    }
-  }
-}
-
 static double sigma[max_h+1], a[max_h+1];
 
 // Compute m_k. Needs to be called only for second last knot and value that is
@@ -109,7 +88,6 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
 {
   int i, k, draw, K = g->K; // Using i for powers, k for knots
   double x, v, u, t;
-  grid_initialize(1, g);
 
   // Compute powers of sigma, the prior standard deviation
   sigma[2] = 1.0/omega;
@@ -139,10 +117,10 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
   // Compute knot probabilities and normalization constant.
   double m_Km1 = compute_m_k(K-1, g);
   double p_Delta = max(0, p[K] - 0.5*p[K-1] - 0.125*m_Km1);
-  double sum = (pi[0] = p[0]/2 - m[0]/12); // Contribution of first knot
+  double pi_total = (pi[0] = p[0]/2 - m[0]/12); // Contribution of first knot
   for (k=1; k<K; k++)
-    sum += (pi[k] = p[k]);
-  sum += (pi[K] = p_Delta/2); // Contribution of last knot.
+    pi_total += (pi[k] = p[k]);
+  pi_total += (pi[K] = p_Delta/2); // Contribution of last knot.
 
   for (draw=0; draw<n; draw++) {
     double phi_o; // Odd part of phi function
@@ -169,8 +147,9 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
       if (k==0)
         t = left_t_draw(p[0], m[0]);
       else if (k==K) {
+        double m_Delta = (m_k + 1.5 * p[K-1] + 0.25 * m_Km1) / 2;
         k = k-1;
-        t = right_t_draw(p[K], m[K]);
+        t = (inner_t_draw(p_Delta, m_Delta) + 1) / 2;
       }
       else {
         t = inner_t_draw(p[k], m[k]);
@@ -180,7 +159,6 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
         }
       }
       u = (k+t)/K;
-
       v = inverse_F_v(u);
       x = inverse_Phi(0.5 + 0.5*v);
       phi_o = phi_odd(x);
@@ -190,9 +168,15 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
     }
 
     // Compute evaluations
-    double f_u;
+    double c0, c1, c2, c3, f_u;
+    c0 = p[k];          // Constant coefficient in subinterval spline
+    c1 = m_k;           // Coefficient of t
+    c2 = -3*c0 - 2*c1 + 3*p[k+1] - m[k+1]; // Coefficient of t^2
+    c3 = 2*c0 + c1 - 2*p[k+1] + m[k+1];    // Coefficient of t^3
+    f_u = (((c3*t+c2)*t+c1)*t+c0);
+
     spline_eval(K, p, m, 1, &u, &f_u);
-    ln_f[draw] = log(f_u);
+    ln_f[draw] = log(f_u) - log(pi_total);
     ln_f[draw] += ln_f_v(v);
     ln_f[draw] += phi_o;
     ln_f[draw] += log_root_2_by_pi - 0.5*x*x;

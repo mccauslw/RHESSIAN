@@ -48,15 +48,15 @@ static inline double rbeta_2_3() {return 1-rbeta_3_2();} // Draw a beta(2, 3) va
 
 void spline_eval(int n_knots, double *p, double *m, int n_evals, double *u, double *f_u)
 {
-  int i, b, K = n_knots-1;
+  int i, k, K = n_knots-1;
   double c0, c1, c2, c3, t;
   for (i=0; i<n_evals; i++) {
-    b = floor(u[i]*K);  // Bin (subinterval) index in {0,1,...,n-1}
-    t = u[i]*K - b;     // index of u in subinterval [i/n, (i+1)/n]
-    c0 = p[b];          // Constant coefficient in subinterval spline
-    c1 = m[b];          // Coefficient of t
-    c2 = -3*c0 - 2*c1 + 3*p[b+1] - m[b+1]; // Coefficient of t^2
-    c3 = 2*c0 + c1 - 2*p[b+1] + m[b+1];    // Coefficient of t^3
+    k = floor(u[i]*K);  // Bin (subinterval) index in {0,1,...,n-1}
+    t = u[i]*K - k;     // index of u in subinterval [i/n, (i+1)/n]
+    c0 = p[k];          // Constant coefficient in subinterval spline
+    c1 = m[k];          // Coefficient of t
+    c2 = -3*c0 - 2*c1 + 3*p[k+1] - m[k+1]; // Coefficient of t^2
+    c3 = 2*c0 + c1 - 2*p[k+1] + m[k+1];    // Coefficient of t^3
     f_u[i] = (((c3*t+c2)*t+c1)*t+c0);
   }
 }
