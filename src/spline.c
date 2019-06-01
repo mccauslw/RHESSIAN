@@ -81,6 +81,16 @@ double inner_t_draw(double p_k, double m_k)
   return (U < positive_threshold) ? t : -t;
 }
 
+double left_t_draw(double p_0, double m_0)
+{
+  return (rng_rand() < 3*p_0/(6*p_0+m_0)) ? rbeta_1_4() : rbeta_2_3();
+}
+
+double right_t_draw(double p_K, double m_K)
+{
+  return (rng_rand() < 3*p_K/(6*p_K-m_K)) ? rbeta_4_1() : rbeta_3_2();
+}
+
 void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
 {
   double pmf[max_n];
@@ -92,13 +102,13 @@ void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
   pmf[K] = p[K]/2 - m[K]/12;
   alias_tables(n_knots, pmf, Alias, Prob);
   for (i=0; i<n_draws; i++) {
-    draw_discrete_from_alias_tables(n_knots, Alias, Prob, 1, &k); // Draw random knot
     double t;
+    draw_discrete_from_alias_tables(n_knots, Alias, Prob, 1, &k); // Draw random knot
     if (k==0)
-      t = (rng_rand() < 3*p[0]/(6*p[0]+m[0])) ? rbeta_1_4() : rbeta_2_3();
+      t = left_t_draw(p[0], m[0]);
     else if (k==K) {
       k = k-1;
-      t = (rng_rand() < 3*p[K]/(6*p[K]-m[K])) ? rbeta_4_1() : rbeta_3_2();
+      t = right_t_draw(p[K], m[K]);
     }
     else
       t = inner_t_draw(p[k], m[k]); // t may be negative (projecting into previous bin)

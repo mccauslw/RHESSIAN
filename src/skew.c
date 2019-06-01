@@ -164,7 +164,23 @@ void skew_draw_eval(double mode, double *h, double mu, double omega,
 
     // Draw u, generate v then z
     if (is_draw) {
-      spline_draw(K, p, m, 1, &u);
+
+      // Draw u
+      if (k==0)
+        t = left_t_draw(p[0], m[0]);
+      else if (k==K) {
+        k = k-1;
+        t = right_t_draw(p[K], m[K]);
+      }
+      else {
+        t = inner_t_draw(p[k], m[k]);
+        if (t<0) {
+          t = t+1; k = k-1;
+          m_k = compute_m_k(k, g);
+        }
+      }
+      u = (k+t)/K;
+
       v = inverse_F_v(u);
       x = inverse_Phi(0.5 + 0.5*v);
       phi_o = phi_odd(x);
