@@ -1,2 +1,4 @@
 *.html
-*.R
+.Rhistory
+R/.DS_Store
+vignettes/flexeven_cache
