@@ -1,0 +1,42 @@
+---
+title: "Proposal distribution for trades in same second"
+author: "William McCausland"
+date: "05/08/2019"
+output: pdf_document
+---
+
+Transaction times:
+
+- one before 0, $n$ in $[0,1]$, one after 1:
+$$ t_0 < 0 < t_1 < \ldots < t_n < 1 < t_{n+1} $$
+- conditioning on $t_0$, $t_{n+1}$
+- let $d_1 = t_1$, $d_{n+1} = 1-t_n$, $d_i = t_i - t_{i-1}$ for $i=2,\ldots,n$
+- note that $\sum_{i=1}^{n+1} d_i = 1$
+
+Indicators:
+
+- $z_1,\ldots,z_{n+1} \in \{0,1\}$:
+$$ z_i = \begin{cases} 1 & \mbox{period between $t_{i-1}$ and $t_i$ is burst} \\
+0 & \mbox{otherwise} \end{cases} $$
+- Let $n_1 = \sum_{i=1}^{n+1} z_i$, $n_0 = (n+1) - \sum_{i=1}^{n+1} z_i$, numbers of burst and non-burst regimes.
+- Let $D_0 = \sum_{z_i = 0} d_i$, the fraction of the second $[0,1]$ in non-burst regime.
+- Let $D_1 = \sum_{z_i = 1} d_i$, the fraction of the second $[0,1]$ in burst regime.
+
+Proposal of indicators:
+
+- $z_1^*$ such that
+$\frac{\Pr[z_1^* = 1]}{\Pr[z_1^* = 0]} = \frac{\eta e^{-\eta(-t_0)}}{\lambda e^{-\lambda(-t_0)}}$.
+- $z_{n+1}^*$ such that
+$\frac{\Pr[z_{n+1}^* = 1]}{\Pr[z_{n+1}^* = 0]} = \frac{\eta e^{-\eta(t_{n+1}-1)}}{\lambda e^{-\lambda(t_{n+1}-1)}}$.
+- $z_k^*$ such that
+$\frac{\Pr[z_k^* = 1]}{\Pr[z_k^* = 0]} = \frac{P_{z_{k-1},1} P_{1,z_{k+1}}}{P_{z_{k-1},0} P_{0,z_{k+1}}}$
+
+Proposal of transaction times:
+
+- Draw $D_0 \sim \mathrm{Be}(\alpha, \beta)$, $D_1 = 1-D_0$.
+- Note that $D_1 \sim \mathrm{Ga}(n_1, \eta)$ and $D_0 \sim \mathrm{Ga}(n_0, \lambda)$, before conditioning on numbers of transactions, $t_0$, $t_{n+1}$, etc.
+- So set $\alpha$ and $\beta$ so that
+$\alpha/(\alpha + \beta) = (n_0/\lambda)/(n_0/\lambda + n_1/\eta)$.
+- partition $D_0 = \sum_{z_i=0} d_i$ into individual $d_i$'s using $\mathrm{Di}(1,\ldots,1)$.
+- partition $D_1 = \sum_{z_i=1} d_i$ into individual $d_i$'s using $\mathrm{Di}(1,\ldots,1)$, if necessary: note that all you ever need to know are the sums of $d_i$'s in strings of $z_1$'s.
+- compute individual $t_i$'s, $i=1,\ldots,n$.
