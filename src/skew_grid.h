@@ -6,11 +6,12 @@ typedef struct {
   int K;
   double *u;
   double *v;
-  double *z;
+  double *x;
+  double *c;
   double *f_v;
   double *f_v_prime;
-  double *z_plus;
-  double *z_minus;
+  double *x_plus;
+  double *x_minus;
 } Grid;
 
 #endif // SKEWGRID

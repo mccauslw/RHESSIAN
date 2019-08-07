@@ -16,7 +16,7 @@ n <- 10
 y_bar <- 5
 theta <- 5
 omega <- 16
-x_max <- 1
+x_max <- 2.5
 r <- Inf; mu <- n*(theta-y_bar)/omega
 #r <- 10; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
 case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=1000)

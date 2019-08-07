@@ -21,6 +21,11 @@ static inline double rbeta_3_2()
 }
 */
 
+static inline double rbeta_4_3()
+{
+  return exp((1.0/6) * log(rng_rand()) + 0.2 * log(rng_rand()) + 0.25 * log(rng_rand()));
+}
+
 // Draw a beta(4, 1) variate
 static inline double rbeta_4_1()
 {
@@ -57,6 +62,7 @@ static inline double rbeta_3_2()
 
 static inline double rbeta_1_4() {return 1-rbeta_4_1();} // Draw a beta(1, 4) variate
 static inline double rbeta_2_3() {return 1-rbeta_3_2();} // Draw a beta(2, 3) variate
+static inline double rbeta_3_4() {return 1-rbeta_4_3();} // Draw a beta(3, 4) variate
 
 void spline_eval(int n_knots, double *p, double *m, int n_evals, double *u, double *f_u)
 {

@@ -64,12 +64,12 @@ static double compute_m_k(int k, Grid *g)
   double phi_plus_prime = 0.0, phi_minus_prime = 0.0;
   if (k==0) return m_0K / g->K;
   for (i=1; i<=4; i++) {
-    phi_plus_prime += a[i+1] * (i+1) * g->z_plus[k + i*(K+1)];
-    phi_minus_prime += a[i+1] * (i+1) * g->z_minus[k + i*(K+1)];
+    phi_plus_prime += a[i+1] * g->x_plus[k + i*(K+1)];
+    phi_minus_prime -= a[i+1] * g->x_minus[k + i*(K+1)];
   }
   double r_prime = 0.5*(exp_phi_plus[k] * phi_plus_prime
                         +exp_phi_minus[k] * phi_minus_prime);
-  double m_k = r_prime - p[k] * g->f_v_prime[k];
+  double m_k = r_prime * g->c[k] - p[k] * g->f_v_prime[k];
   m_k /= g->K * g->f_v[k] * g->f_v[k];
   return m_k;
 }
@@ -79,7 +79,7 @@ static inline double phi_odd(double z, double *a)
 {
   double z2 = z*z;
   double z3 = z2 * z;
-  return ((a[5] * z2) + a[3]) * z3;
+  return ((a[5]/120 * z2) + a[3]/6) * z3;
 }
 
 /* If is_draw is true, draw from the skew_draw distribution and evaluate
@@ -107,7 +107,6 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
   int i, k, draw, K = g->K; // Using i for powers, k for knots
   double x, v, u, t;
   int x_negative = 0;
-  double fact_mult[6] = {0.0, 0.0, 1.0/2, 1.0/6, 1.0/24, 1.0/120};
 
   // Compute powers of sigma, the prior standard deviation
   sigma[2] = 1.0/omega;
@@ -118,23 +117,20 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
 
   // Compute prior-precision-normalized coefficients
   for (i=2; i<=5; i++)
-    a[i] = sigma[i] * h[i] * fact_mult[i];
+    a[i] = sigma[i] * h[i];
 
   // Evalute level p[k] = f_even at all grid points k=0,1,...,K
   p[0] = p_0;
   for (k=1; k<=K; k++) {
     phi_plus[k] = phi_minus[k] = 0.0;
     for (i=2; i<=5; i++) {
-      phi_plus[k] += a[i] * g->z_plus[k + i*(K+1)];
-      phi_minus[k] += a[i] * g->z_minus[k + i*(K+1)];
+      phi_plus[k] += a[i] * g->x_plus[k + i*(K+1)];
+      phi_minus[k] += a[i] * g->x_minus[k + i*(K+1)];
       exp_phi_plus[k] = exp(phi_plus[k]);
       exp_phi_minus[k] = exp(phi_minus[k]);
     }
     r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
     p[k] = r[k] / g->f_v[k];
-    printf("k = %d, phi_plus[k] = %lf, %lf, phi_minus[k] = %lf, %lf, r[k] = %lf, f_v[k] = %lf, p[k] = %lf\n",
-           k, phi_plus[k], exp_phi_plus[k], phi_minus[k], exp_phi_minus[k],
-           r[k], g->f_v[k], p[k]);
   }
 
   // Compute knot probabilities and normalization constant.
@@ -160,11 +156,6 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
       u = (x==0) ? 0 : F_v(v);
       k = floor(K*u);
       t = K*u - k;
-    }
-
-    if (!(draw % 100)) {
-      printf("draw = %d, x = %lf, phi_o = %lf, v = %lf, u = %lf, k = %d, t = %lf\n",
-             draw, x, phi_o, v, u, k, t);
     }
 
     // Evaluate derivative of f_even at this knot.
@@ -206,12 +197,6 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
     c2 = -3*c0 - 2*c1 + 3*p[k+1] - m_kp1; // Coefficient of t^2
     c3 = 2*c0 + c1 - 2*p[k+1] + m_kp1;    // Coefficient of t^3
     f_u = (((c3*t+c2)*t+c1)*t+c0);
-
-    if (!(draw % 100)) {
-      printf("c0: %lf, c1: %lf, c2: %lf, c3: %lf\n", c0, c1, c2, c3);
-      //printf("\tf_u = %lf, log(pi_total) = %lf, ln_f_v(v) = %lf, rest = %lf\n",
-      //     f_u, log(pi_total), ln_f_v(v), log_root_2_by_pi - 0.5*x*x);
-    }
 
     //spline_eval(K, p, m, 1, &u, &f_u);
     ln_f[draw] = log(f_u) - log(pi_total);
