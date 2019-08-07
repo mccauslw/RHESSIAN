@@ -9,6 +9,18 @@
 
 // Specialized beta draws for select small integral parameters
 
+/* These might be more efficient
+static inline double rbeta_4_1()
+{
+  return sqrt(sqrt(rng_rand()));
+}
+
+static inline double rbeta_3_2()
+{
+  return exp((1.0/3) * log(rng_rand()) + 0.25 * log(rng_rand()));
+}
+*/
+
 // Draw a beta(4, 1) variate
 static inline double rbeta_4_1()
 {
