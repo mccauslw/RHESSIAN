@@ -132,14 +132,17 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
     r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
     p[k] = r[k] / g->f_v[k];
   }
+  double p_tau = p[K], m_tau = compute_m_k(K, g);
+  p[K] = 0;
 
   // Compute knot probabilities and normalization constant.
   double m_Km1 = compute_m_k(K-1, g);
-  double p_Delta = max(0, p[K] - 0.5*p[K-1] - 0.125*m_Km1);
+  double p_Delta = max(0, p_tau - 0.5*p[K-1] - 0.125*m_Km1);
+  double m_Delta = m_tau + 1.5*p[K-1] + 0.25*m_Km1;
   double pi_total = (pi[0] = p[0]/2 - m[0]/12); // Contribution of first knot
   for (k=1; k<K; k++)
     pi_total += (pi[k] = p[k]);
-  pi_total += (pi[K] = p_Delta/2); // Contribution of last knot.
+  pi_total += (pi[K] = p_Delta*8/15); // Contribution of last knot.
 
   for (draw=0; draw<n_draws; draw++) {
     double phi_o; // Odd part of phi function
@@ -160,7 +163,7 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
 
     // Evaluate derivative of f_even at this knot.
     double m_k = compute_m_k(k, g);
-    double m_kp1 = compute_m_k(k+1, g);
+    double m_kp1 = (k==K-1) ? 0.0 : compute_m_k(k+1, g);
 
     // Draw u, generate v then z
     if (is_draw) {
@@ -169,9 +172,8 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
       if (k==0)
         t = left_t_draw(p[0], m[0]);
       else if (k==K) {
-        double m_Delta = (m_k + 1.5 * p[K-1] + 0.25 * m_Km1) / 2;
         k = k-1;
-        t = (inner_t_draw(p_Delta, m_Delta) + 1) / 2;
+        t = (inner_t_draw(p_Delta, m_Delta/2) + 1) / 2;
       }
       else {
         t = inner_t_draw(p[k], m[k]);
@@ -191,12 +193,14 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
     }
 
     // Compute evaluations
-    double c0, c1, c2, c3, f_u;
+    double f_u, c0, c1, c2, c3;
     c0 = p[k];          // Constant coefficient in subinterval spline
     c1 = m_k;           // Coefficient of t
     c2 = -3*c0 - 2*c1 + 3*p[k+1] - m_kp1; // Coefficient of t^2
     c3 = 2*c0 + c1 - 2*p[k+1] + m_kp1;    // Coefficient of t^3
     f_u = (((c3*t+c2)*t+c1)*t+c0);
+    if (k==(K-1))
+      f_u += 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5));
 
     //spline_eval(K, p, m, 1, &u, &f_u);
     ln_f[draw] = log(f_u) - log(pi_total);
