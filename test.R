@@ -11,23 +11,36 @@ plot(u, f_u, type='l')
 u_draw <- spline_draw_cpp(c(1, 2, 1), c(1, 0, -1), 10000)
 hist(u_draw)
 
+t <- seq(0, 1, by=0.01)
+h00 <- (1+2*t)*(1-t)^2
+h10 <- t*(1-t)^2
+h01 <- t^2*(3-2*t)
+h11 <- t^2*(t-1)
+plot(t, 345.6*h00 -1900.8*h10)
+
 # Test skew_eval_cpp
-n <- 10
+n <- 20
 y_bar <- 5
 theta <- 5
-omega <- 16
-x_max <- 3.0
-r <- Inf; mu <- n*(theta-y_bar)/omega
-#r <- 10; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
-case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=1000)
+omega <- 25
+x_max <- 6.0; z_max <- x_max / sqrt(omega)
+n_pos <- 200
+#r <- 20; mu <- n*(theta-y_bar)/omega
+r <- 10; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
+case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=n_pos)
 plot(case$z, case$phi - 0.5*omega*case$z^2, type='l')
 lines(case$z, case$phi, col='red')
 lines(case$z, -0.5*case$x^2, col='green')
 
-lnf <- skew_eval_cpp(0, case$h, mu, omega, case$z)
-lines(case$z, lnf + 1.2, col='blue')
-x_knots = c(0, 0.392830813649729, 0.764709673786387, 1.15034938037601, 1.59321881802305, 2.20041058121003, 2.69949670022498)
-z_knots = x_knots / sqrt(omega)
+K <- 10
+k <- 0:K
+u <- k/K; u[K+1] = (K-0.5)/K
+v <- 1-(1-u)^2
+x_knots <- qnorm(0.5 + 0.5*v)
+z_knots <- x_knots / sqrt(omega)
+
+lnf <- skew_eval_cpp(K, 0, case$h, mu, omega, case$z)
+lines(case$z, lnf, col='blue')
 abline(v=z_knots)
 abline(v=-z_knots)
 
@@ -35,3 +48,4 @@ plot(case$z, lnf - case$phi + 0.5*case$x^2, type='l')
 abline(v=z_knots)
 abline(v=-z_knots)
 
+print(sum(exp(lnf))*(z_max/n_pos))

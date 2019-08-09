@@ -7,11 +7,14 @@ typedef struct {
   double *u;
   double *v;
   double *x;
+  double *xu;
   double *c;
   double *f_v;
   double *f_v_prime;
   double *x_plus;
   double *x_minus;
+  double *xu_plus;
+  double *xu_minus;
 } Grid;
 
 #endif // SKEWGRID

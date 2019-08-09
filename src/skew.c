@@ -18,7 +18,8 @@ const double log_root_2_by_pi = -0.2257913526447273833142;
 const double p_0 = 2.0;
 const double m_0K = -2.0; // Gives m_0 when m_0K/K normalization is computed.
 const int n_powers = 5;
-extern Grid g6;
+extern Grid *grids[];
+extern int min_grid_points, max_grid_points;
 
 /* These depend on the current target parameters, and have values at all grid
  * points.
@@ -43,7 +44,7 @@ static double r_prime[max_knots];
 
 // Functions related to F_v(v) = 1-(1-v)^delta, for delta=0.5
 static inline double inverse_F_v(double u) {return 1.0-(1.0-u)*(1.0-u);}
-static inline double F_v(double v) {return 1.0 - sqrt((1.0-v));}
+static inline double F_v(double v) {return 1.0 - sqrt(1.0-v);}
 static inline double f_v(double v) {return 0.5 / sqrt(1.0-v);}
 static inline double ln_f_v(double v) {return log(0.5) - 0.5*log(1.0-v);}
 
@@ -71,15 +72,17 @@ static double compute_m_k(int k, Grid *g)
                         +exp_phi_minus[k] * phi_minus_prime);
   double m_k = r_prime * g->c[k] - p[k] * g->f_v_prime[k];
   m_k /= g->K * g->f_v[k] * g->f_v[k];
+  if (fabs(m_k)/p[k] > 3)
+    m_k /= fabs(m_k)/p[k];
   return m_k;
 }
 
 // Compute odd part of phi function
-static inline double phi_odd(double z, double *a)
+static inline double phi_odd(double x, double *a)
 {
-  double z2 = z*z;
-  double z3 = z2 * z;
-  return ((a[5]/120 * z2) + a[3]/6) * z3;
+  double x2 = x*x;
+  double x3 = x2 * x;
+  return ((a[5]/120 * x2) + a[3]/6) * x3;
 }
 
 /* If is_draw is true, draw from the skew_draw distribution and evaluate
@@ -100,10 +103,11 @@ static inline double phi_odd(double z, double *a)
  * Outputs:
  *  ln_f:     vector of log density evaluations
  */
-void skew_draw_eval(int is_draw, int n_draws, Grid *g,
+void skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int is_v,
                     double mode, double *h, double mu, double omega,
                     double *z, double *ln_f)
 {
+  Grid *g = grids[n_grid_points];
   int i, k, draw, K = g->K; // Using i for powers, k for knots
   double x, v, u, t;
   int x_negative = 0;
@@ -143,6 +147,13 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
   for (k=1; k<K; k++)
     pi_total += (pi[k] = p[k]);
   pi_total += (pi[K] = p_Delta*8/15); // Contribution of last knot.
+
+  for (k=0; k<=K; k++)
+    printf("k=%d, pi[k]=%lf, p[k]=%lf\n", k, pi[k], p[k]);
+  printf("pi_total=%lf\n", pi_total);
+
+  printf("p_tau = %le, m_tau = %le, p[K-1] = %le, m[K-1] = %le, p_Delta = %le, m_Delta = %le\n",
+         p_tau, m_tau, p[K-1], m_Km1, p_Delta, m_Delta);
 
   for (draw=0; draw<n_draws; draw++) {
     double phi_o; // Odd part of phi function
@@ -202,15 +213,19 @@ void skew_draw_eval(int is_draw, int n_draws, Grid *g,
     if (k==(K-1))
       f_u += 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5));
 
+    if (f_u < 0.0)
+      printf("k=%d, K=%d, t=%lf, f_u=%lf, base=%le, extra=%le\n", k, K, t, f_u,
+             (((c3*t+c2)*t+c1)*t+c0), 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5)));
+
     //spline_eval(K, p, m, 1, &u, &f_u);
-    ln_f[draw] = log(f_u) - log(pi_total);
+    ln_f[draw] = log(f_u) - log(pi_total) + log(K);
     ln_f[draw] += ln_f_v(v);
+    ln_f[draw] += 0.5 * (log(omega) - log(2*M_PI) - x*x);
     ln_f[draw] += log(1.0 + (exp(2*phi_o)-1) / (exp(2*phi_o)+1));
-    ln_f[draw] += log_root_2_by_pi - 0.5*x*x;
   }
 }
 
-SEXP skew_eval_c(double mode, SEXP h, double mu, double omega, SEXP z)
+SEXP skew_eval_c(int n_grid_points, double mode, SEXP h, double mu, double omega, SEXP z)
 {
   double *h_ptr, *z_ptr, *log_f_ptr;
   SEXP log_f;
@@ -220,12 +235,12 @@ SEXP skew_eval_c(double mode, SEXP h, double mu, double omega, SEXP z)
   h_ptr = REAL(h);
   z_ptr = REAL(z);
   log_f_ptr = REAL(log_f);
-  skew_draw_eval(FALSE, length(z), &g6, mode, h_ptr, mu, omega, z_ptr, log_f_ptr);
+  skew_draw_eval(FALSE, length(z), n_grid_points, TRUE, mode, h_ptr, mu, omega, z_ptr, log_f_ptr);
   UNPROTECT(3);
   return log_f;
 }
 
-SEXP skew_draw_c(double mode, SEXP h, double mu, double omega, int n_draws)
+SEXP skew_draw_c(int n_grid_points, double mode, SEXP h, double mu, double omega, int n_draws)
 {
   double *h_ptr, *draws_ptr, *log_f_ptr;
   SEXP draws, log_f;
@@ -235,7 +250,7 @@ SEXP skew_draw_c(double mode, SEXP h, double mu, double omega, int n_draws)
   h_ptr = REAL(h);
   draws_ptr = REAL(draws);
   log_f_ptr = REAL(log_f);
-  skew_draw_eval(TRUE, n_draws, &g6, mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
+  skew_draw_eval(TRUE, n_draws, n_grid_points, TRUE, mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
   UNPROTECT(3);
   return draws;
 }
