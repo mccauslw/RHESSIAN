@@ -20,12 +20,12 @@ for (K in seq(min_points, max_points)) {
   c = 0.5/dnorm(x)
   cu = 0.5/dnorm(xu)
   f_v = 0.5/sqrt(1-v)
+  f_v_inv = 1.0/f_v
+  Kf_v2_inv = 1.0/(f_v * f_v * K)
   f_v_prime = 0.5 * f_v / (1-v)
-  v_names <- c('u', 'v', 'x', 'xu', 'c', 'cu', 'f_v', 'f_v_prime')
+  v_names <- c('u', 'v', 'x', 'xu', 'c', 'cu', 'f_v', 'f_v_inv', 'Kf_v2_inv', 'f_v_prime')
 
   # Create matrices
-  #x_plus <- 0
-  #x_minus <- 0
   m_names <- c('x_plus', 'x_minus', 'xu_plus', 'xu_minus')
 
   # Print lines for vectors
@@ -45,7 +45,7 @@ for (K in seq(min_points, max_points)) {
     }
     writeLines("};", fp)
   }
-  line <- sprintf("Grid g%d = {%d, %s, %s};\n", K, K,
+  line <- sprintf("Grid g%d = {%d, %f, %f, %s, %s};\n", K, K, 1/K, log(K),
                   paste(sprintf("%s%d", v_names, K), collapse=', '),
                   paste(sprintf("%s%d", m_names, K), collapse=', '))
   writeLines(line, fp)

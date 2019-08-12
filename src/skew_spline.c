@@ -12,7 +12,7 @@
 #define max_knots 20
 
 // Used options(digits=22), log(sqrt(2/pi)) in R
-const double log_root_2_by_pi = -0.2257913526447273833142;
+const double log_2_pi = 1.837877066409345339082;
 const double p_0 = 2.0;
 const double m_0K = -2.0; // Gives m_0 when m_0K/K normalization is computed.
 const int n_powers = 5;
@@ -77,11 +77,11 @@ static double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
   double m_k;
   if (is_v) {
     m_k = r_prime * g->c[k] - p[k] * g->f_v_prime[k];
-    m_k /= g->K * g->f_v[k] * g->f_v[k];
+    m_k *= g->Kf_v2_inv[k];
   }
   else {
     m_k = r_prime * g->cu[k];
-    m_k /= g->K;
+    m_k *= g->K_inv;
   }
   if (is_trunc && (fabs(m_k)/p[k] > 3.0))
     m_k /= fabs(m_k)/p[k];
@@ -146,8 +146,8 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
       exp_phi_plus[k] = exp(phi_plus[k]);
       exp_phi_minus[k] = exp(phi_minus[k]);
     }
-    r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
-    p[k] = is_v ? r[k] / g->f_v[k] : r[k];
+    p[k] = r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
+    if (is_v) p[k] *= g->f_v_inv[k];
   }
   double p_tau = p[K], m_tau = compute_m_k(K, g, is_v, false);
   p[0] = is_v ? p_0 : 1.0;
@@ -166,15 +166,15 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     pi_total += (pi[k] = p[k]);
   pi_total += (pi[K] = p_Delta*0.5);            // Contribution of tau knot.
 
-  for (k=0; k<=K; k++)
-    printf("k=%d, pi[k]=%lf, p[k]=%lf\n", k, pi[k], p[k]);
-  printf("pi_total=%lf\n", pi_total);
+  //for (k=0; k<=K; k++)
+  //  printf("k=%d, pi[k]=%lf, p[k]=%lf\n", k, pi[k], p[k]);
+  //printf("pi_total=%lf\n", pi_total);
 
-  printf("p_tau = %le, m_tau = %le\np[K-1] = %le, m[K-1] = %le\np_Delta = %le, m_Delta = %le\n",
-         p_tau, m_tau, p[K-1], m_Km1, p_Delta, m_Delta);
+  //printf("p_tau = %le, m_tau = %le\np[K-1] = %le, m[K-1] = %le\np_Delta = %le, m_Delta = %le\n",
+  //       p_tau, m_tau, p[K-1], m_Km1, p_Delta, m_Delta);
 
   // Repeatable part of draw, in case a loop is desired.
-  double phi_o; // Odd part of phi function
+  double phi_o, exp_2_phi_o; // Odd part of phi function and exp of twice odd part
 
   // Normalize and draw or compute knot index.
   if (is_draw)
@@ -182,6 +182,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   else {
     x = (*z - mode)/sigma[1];
     phi_o = phi_odd(x, a);
+    exp_2_phi_o = exp(2.0 * phi_o);
     x_negative = (x < 0);
     x = fabs(x);
     v = (x==0) ? 0 : 2*Phi(x)-1;
@@ -216,7 +217,8 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     v = is_v ? inverse_F_v(u) : u;
     x = inverse_Phi(0.5 + 0.5*v);
     phi_o = phi_odd(x, a);
-    if (rng_rand() * (1+exp(2*phi_o)) < 1.0)
+    exp_2_phi_o = exp(2*phi_o);
+    if (rng_rand() * (1+exp_2_phi_o) < 1.0)
       x = -x;
     *z = x*sigma[1] + mode;
   }
@@ -238,15 +240,15 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
   //      f_u += 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5));
 
-  if (f_u < 0.0)
-    printf("k=%d, K=%d, t=%lf, f_u=%lf, base=%le, extra=%le\n", k, K, t, f_u,
-            (((c3*t+c2)*t+c1)*t+c0), 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5)));
+  //if (f_u < 0.0)
+  //  printf("k=%d, K=%d, t=%lf, f_u=%lf, base=%le, extra=%le\n", k, K, t, f_u,
+  //          (((c3*t+c2)*t+c1)*t+c0), 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5)));
 
   //spline_eval(K, p, m, 1, &u, &f_u);
-  *ln_f = log(f_u) - log(pi_total) + log(K);
+  *ln_f = log(f_u) - log(pi_total) + g->log_K;
   if (is_v)
     *ln_f += ln_f_v(v);
-  *ln_f += 0.5 * (log(omega) - log(2*M_PI) - x*x);
-  *ln_f += log(1.0 + (exp(2*phi_o)-1) / (exp(2*phi_o)+1));
+  *ln_f += 0.5 * (log(omega) - log_2_pi - x*x);
+  *ln_f += log(1.0 + (exp_2_phi_o-1) / (exp_2_phi_o+1));
 }
 

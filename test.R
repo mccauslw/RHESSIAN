@@ -24,19 +24,21 @@ y_bar <- 2
 theta <- 2
 omega <- 9
 x_max <- 4.0; z_max <- x_max / sqrt(omega)
-n_pos <- 200
+n_pos <- 20000
 #r <- 20; mu <- n*(theta-y_bar)/omega
 r <- 10; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
 case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=n_pos)
-plot(case$z, case$phi - 0.5*omega*case$z^2, type='l')
+true_lnf = case$phi - 0.5*omega*case$z^2
+plot(case$z, true_lnf, type='l')
 lines(case$z, case$phi, col='red')
 lines(case$z, -0.5*case$x^2, col='green')
 lines(case$z, case$phi_Taylor, col='purple')
 
 K <- 10
-code = 2
+code = 1
 mode = 0
-lnf <- skew_eval_cpp(K, code, mode, case$h, mu, omega, case$z)
+
+print(system.time(lnf <- skew_eval_cpp(K, code, mode, case$h, mu, omega, case$z)))
 
 k <- 0:K
 u <- k/K; u[K+1] = (K-0.5)/K
@@ -47,8 +49,14 @@ lines(case$z, lnf, col='blue')
 abline(v=z_knots)
 abline(v=-z_knots)
 
-plot(case$z, lnf - case$phi + 0.5*case$x^2, type='l')
+plot(case$z, lnf - true_lnf, type='l')
 abline(v=z_knots)
 abline(v=-z_knots)
 
 print(sum(exp(lnf))*(z_max/n_pos))
+diff = true_lnf[n_pos+1] - lnf[n_pos+1]
+Ew = sum(exp(true_lnf-lnf-diff) * exp(lnf)*(z_max/n_pos))
+Ew2 = sum(exp(2*(true_lnf-lnf-diff)) * exp(lnf)*(z_max/n_pos))
+var_w = Ew2 - Ew^2
+sd_w = sqrt(var_w)
+print(sprintf("Ew: %f, Ew2: %f, sd_w: %f", Ew, Ew2, sd_w))
