@@ -15,6 +15,7 @@ typedef struct {
 } Symmetric_Hermite;
 
 Symmetric_Hermite *symmetric_Hermite_alloc(int max_K, int max_n_reject);
+void symmetric_Hermite_free(Symmetric_Hermite *sh);
 void symmetric_Hermite_draw(Symmetric_Hermite *sh, double *x, double *log_f);
 double symmetric_Hermite_log_f(Symmetric_Hermite *sh, double x);
 

@@ -34,9 +34,9 @@ lines(case$z, -0.5*case$x^2, col='green')
 lines(case$z, case$phi_Taylor, col='purple')
 
 K <- 10
-is_v = 1
+code = 2
 mode = 0
-lnf <- skew_eval_cpp(K, is_v, mode, case$h, mu, omega, case$z)
+lnf <- skew_eval_cpp(K, code, mode, case$h, mu, omega, case$z)
 
 k <- 0:K
 u <- k/K; u[K+1] = (K-0.5)/K

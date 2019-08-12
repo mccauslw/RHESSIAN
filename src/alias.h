@@ -1,6 +1,9 @@
 #ifndef ALIAS
 #define ALIAS
 
+#include <R.h>
+#include <Rinternals.h>
+
 // For internal C use
 void draw_discrete(int n, double *p, int n_draws, int *draws);
 void alias_tables(int n, double *p, int *Alias, double *Prob);

@@ -3,7 +3,7 @@
 #include <math.h>
 #include <string.h>
 #include "RNG.h"
-#include "skew.h"
+#include "skew_old.h"
 #include "symmetric_Hermite.h"
 
 
@@ -39,7 +39,7 @@ void skew_draw_eval(Skew_parameters *skew, Symmetric_Hermite *sh,
 	double a3 = skew->h3 * sigma_3 / 6.0;
 	double a4 = skew->h4 * sigma_2 * sigma_2 / 24.0;
 	double a5 = skew->h5 * sigma_3 * sigma_2 / 120.0;
-	
+
 	double z_bar = 5.0;
 	double x_bar = z_bar * sigma;
 	double prior_pi = 1e-9;
@@ -49,7 +49,7 @@ void skew_draw_eval(Skew_parameters *skew, Symmetric_Hermite *sh,
 	int K_1 = (w_1 > K_1_threshold) ? 2 : 1;
 	double w_2 = fabs(625*a4);
 	int K_2 = 1;
-	
+
 	for( i=2; i<=5; i++ )
 		if( w_2 > K_2_threshold[i] )
 			K_2 = i;
@@ -83,7 +83,7 @@ void skew_draw_eval(Skew_parameters *skew, Symmetric_Hermite *sh,
 		skew_approx.p2[2*i] = skew_approx.p2[2*(i-1)] * a4 / i;
 		skew_approx.p2[2*i-1] = 0.0;
 	}
-	
+
 	// Compute coefficients of y=x^2 in product polynomial
 	for (j=0; j<=skew_approx.n2; j++)
 		sh->coeff[j] = skew_approx.p2[j];
@@ -138,7 +138,7 @@ void skew_draw_eval(Skew_parameters *skew, Symmetric_Hermite *sh,
 		x_star = skew->z - skew->mode;
 		z_star = x_star / sigma;
 		tail_draw = (fabs(x_star) > x_bar);
-		
+
 		// Compute f(x)
 		double term_2 = (tail_draw) ? (z_bar * z_bar) : (z_star * z_star);
 		double term_4 = term_2 * term_2;

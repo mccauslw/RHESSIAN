@@ -1,10 +1,8 @@
-#include <R.h>
-#include <Rinternals.h>
 #include <stdlib.h>
 #include <math.h>
 
 #include "alias.h"
-#include "skew.h"
+#include "skew_spline.h"
 #include "skew_grid.h"
 #include "RNG.h"
 #include "Phi.h"
@@ -103,7 +101,6 @@ static inline double phi_odd(double x, double *a)
  *
  * Inputs:
  *  is_draw:       whether to draw or not
- *  n_draws:       number of draws/points of evaluation
  *  n_grid_points: number of grid points in precomputed grid
  *  is_v:          whether or not to do v = F_v^{-1}(u) transformation
  *  mode:          mode of the skew_draw distribution
@@ -112,17 +109,17 @@ static inline double phi_odd(double x, double *a)
  *  omega:         prior precision
  *
  * Input or output according to value of id_draw:
- *  z:        vector of values
+ *  z:             pointer to value of draw/point of evaluation
  *
  * Outputs:
- *  ln_f:     vector of log density evaluations
+ *  ln_f:          pointer to log density evaluation
  */
-void skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int is_v,
+void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
                     double mode, double *h, double mu, double omega,
                     double *z, double *ln_f)
 {
   Grid *g = grids[n_grid_points];
-  int i, k, draw, K = g->K; // Using i for powers, k for knots
+  int i, k, K = g->K; // Using i for powers, k for knots
   double x, v, u, t;
   int x_negative = 0;
   double m_0 = is_v ? (m_0K / g->K) : 0.0;
@@ -176,134 +173,80 @@ void skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int is_v,
   printf("p_tau = %le, m_tau = %le\np[K-1] = %le, m[K-1] = %le\np_Delta = %le, m_Delta = %le\n",
          p_tau, m_tau, p[K-1], m_Km1, p_Delta, m_Delta);
 
-  for (draw=0; draw<n_draws; draw++) {
-    double phi_o; // Odd part of phi function
+  // Repeatable part of draw, in case a loop is desired.
+  double phi_o; // Odd part of phi function
 
-    // Normalize and draw or compute knot index.
-    if (is_draw)
-      draw_discrete(K+1, pi, 1, &k);
+  // Normalize and draw or compute knot index.
+  if (is_draw)
+    draw_discrete(K+1, pi, 1, &k);
+  else {
+    x = (*z - mode)/sigma[1];
+    phi_o = phi_odd(x, a);
+    x_negative = (x < 0);
+    x = fabs(x);
+    v = (x==0) ? 0 : 2*Phi(x)-1;
+    u = is_v ? F_v(v) : v;
+    k = floor(K*u);
+    t = K*u - k;
+  }
+
+  // Evaluate derivative of f_even at this knot.
+  double m_k = compute_m_k(k, g, is_v, true);
+  double m_kp1 = (k==K-1) ? 0.0 : compute_m_k(k+1, g, is_v, true);
+
+  // Draw u, generate v then z
+  if (is_draw) {
+
+    // Draw u
+    if (k==0)
+      t = left_t_draw(p[0], m_k);
+    else if (k==K) {
+      k = k-1;
+      t = (inner_t_draw(p_Delta, m_Delta/2) + 1) / 2;
+    }
     else {
-      x = (z[draw] - mode)/sigma[1];
-      phi_o = phi_odd(x, a);
-      x_negative = (x < 0);
-      x = fabs(x);
-      v = (x==0) ? 0 : 2*Phi(x)-1;
-      u = is_v ? F_v(v) : v;
-      k = floor(K*u);
-      t = K*u - k;
-    }
-
-    // Evaluate derivative of f_even at this knot.
-    double m_k = compute_m_k(k, g, is_v, true);
-    double m_kp1 = (k==K-1) ? 0.0 : compute_m_k(k+1, g, is_v, true);
-
-    // Draw u, generate v then z
-    if (is_draw) {
-
-      // Draw u
-      if (k==0)
-        t = left_t_draw(p[0], m_k);
-      else if (k==K) {
-        k = k-1;
-        t = (inner_t_draw(p_Delta, m_Delta/2) + 1) / 2;
+      t = inner_t_draw(p[k], m_k);
+      if (t<0) {
+        t = t+1; k = k-1;
+        m_kp1 = m_k;
+        m_k = compute_m_k(k, g, is_v, true);
       }
-      else {
-        t = inner_t_draw(p[k], m_k);
-        if (t<0) {
-          t = t+1; k = k-1;
-          m_kp1 = m_k;
-          m_k = compute_m_k(k, g, is_v, true);
-        }
-      }
-      u = (k+t)/K;
-      v = is_v ? inverse_F_v(u) : u;
-      x = inverse_Phi(0.5 + 0.5*v);
-      phi_o = phi_odd(x, a);
-      if (rng_rand() * (1+exp(2*phi_o)) < 1.0)
-        x = -x;
-      z[draw] = x*sigma[1] + mode;
     }
-
-    // Compute evaluations
-    double f_u, c0, c1, c2, c3;
-    c0 = p[k];          // Constant coefficient in subinterval spline
-    c1 = m_k;           // Coefficient of t
-    c2 = -3*c0 - 2*c1 + 3*p[k+1] - m_kp1; // Coefficient of t^2
-    c3 = 2*c0 + c1 - 2*p[k+1] + m_kp1;    // Coefficient of t^3
-    f_u = (((c3*t+c2)*t+c1)*t+c0);
-    if (k==(K-1)) {
-      double t_tilde = 2*t-1; // In [-1, 1], corresponding to [u[K-1], 1]
-      double tt_abs = fabs(t_tilde);
-      double tt_sign = (t_tilde > 0) ? 1.0 : -1.0;
-      f_u += ((2*tt_abs - 3)*tt_abs*tt_abs + 1) * p_Delta;
-      f_u += tt_sign * (((tt_abs - 2.0)*tt_abs + 1.0)*tt_abs) * 0.5 * m_Delta;
-    }
-
-    //      f_u += 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5));
-
-    if (f_u < 0.0)
-      printf("k=%d, K=%d, t=%lf, f_u=%lf, base=%le, extra=%le\n", k, K, t, f_u,
-             (((c3*t+c2)*t+c1)*t+c0), 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5)));
-
-    //spline_eval(K, p, m, 1, &u, &f_u);
-    ln_f[draw] = log(f_u) - log(pi_total) + log(K);
-    if (is_v)
-      ln_f[draw] += ln_f_v(v);
-    ln_f[draw] += 0.5 * (log(omega) - log(2*M_PI) - x*x);
-    ln_f[draw] += log(1.0 + (exp(2*phi_o)-1) / (exp(2*phi_o)+1));
+    u = (k+t)/K;
+    v = is_v ? inverse_F_v(u) : u;
+    x = inverse_Phi(0.5 + 0.5*v);
+    phi_o = phi_odd(x, a);
+    if (rng_rand() * (1+exp(2*phi_o)) < 1.0)
+      x = -x;
+    *z = x*sigma[1] + mode;
   }
-}
 
-void multi_skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int code,
-                    double mode, double *h, double mu, double omega,
-                    double *z, double *ln_f)
-{
-  int i_draw;
-  switch (code) {
-    case 0: // spline draw, without v transformation
-    case 1: // spline draw, with (1) v transformation
-      for (i_draw = 0; i_draw < n_draws; i_draw++)
-        spline_skew_draw_eval(is_draw, n_grid_points, code, mode, h, mu, omega, z+i_draw, ln_f+i_draw);
-      break;
-
-    case 2: // old skew_draw
-      Skew_parameters skew;
-      Symmetric_Hermite sh;
-      for (i_draw = 0; i_draw < n_draws; i_draw++) {
-        skew_draw_eval(&skew, &sh, K_1_threshold, K_2_threshold);
-      }
-      break;
+  // Compute evaluations
+  double f_u, c0, c1, c2, c3;
+  c0 = p[k];          // Constant coefficient in subinterval spline
+  c1 = m_k;           // Coefficient of t
+  c2 = -3*c0 - 2*c1 + 3*p[k+1] - m_kp1; // Coefficient of t^2
+  c3 = 2*c0 + c1 - 2*p[k+1] + m_kp1;    // Coefficient of t^3
+  f_u = (((c3*t+c2)*t+c1)*t+c0);
+  if (k==(K-1)) {
+    double t_tilde = 2*t-1; // In [-1, 1], corresponding to [u[K-1], 1]
+    double tt_abs = fabs(t_tilde);
+    double tt_sign = (t_tilde > 0) ? 1.0 : -1.0;
+    f_u += ((2*tt_abs - 3)*tt_abs*tt_abs + 1) * p_Delta;
+    f_u += tt_sign * (((tt_abs - 2.0)*tt_abs + 1.0)*tt_abs) * 0.5 * m_Delta;
   }
+
+  //      f_u += 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5));
+
+  if (f_u < 0.0)
+    printf("k=%d, K=%d, t=%lf, f_u=%lf, base=%le, extra=%le\n", k, K, t, f_u,
+            (((c3*t+c2)*t+c1)*t+c0), 16*t*t*(1-t)*(1-t)*(p_Delta + m_Delta*(t-0.5)));
+
+  //spline_eval(K, p, m, 1, &u, &f_u);
+  *ln_f = log(f_u) - log(pi_total) + log(K);
+  if (is_v)
+    *ln_f += ln_f_v(v);
+  *ln_f += 0.5 * (log(omega) - log(2*M_PI) - x*x);
+  *ln_f += log(1.0 + (exp(2*phi_o)-1) / (exp(2*phi_o)+1));
 }
 
-SEXP skew_eval_c(int n_grid_points, int code, double mode, SEXP h, double mu, double omega, SEXP z)
-{
-  double *h_ptr, *z_ptr, *log_f_ptr;
-  SEXP log_f;
-  h = PROTECT(coerceVector(h, REALSXP));
-  z = PROTECT(coerceVector(z, REALSXP));
-  log_f = PROTECT(allocVector(REALSXP, length(z)));
-  h_ptr = REAL(h);
-  z_ptr = REAL(z);
-  log_f_ptr = REAL(log_f);
-  multi_skew_draw_eval(FALSE, length(z), n_grid_points, code,
-                       mode, h_ptr, mu, omega, z_ptr, log_f_ptr);
-  UNPROTECT(3);
-  return log_f;
-}
-
-SEXP skew_draw_c(int n_grid_points, int code, double mode, SEXP h, double mu, double omega, int n_draws)
-{
-  double *h_ptr, *draws_ptr, *log_f_ptr;
-  SEXP draws, log_f;
-  h = PROTECT(coerceVector(h, REALSXP));
-  draws = PROTECT(allocVector(REALSXP, n_draws));
-  log_f = PROTECT(allocVector(REALSXP, n_draws));
-  h_ptr = REAL(h);
-  draws_ptr = REAL(draws);
-  log_f_ptr = REAL(log_f);
-  multi_skew_draw_eval(TRUE, n_draws, n_grid_points, code,
-                       mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
-  UNPROTECT(3);
-  return draws;
-}

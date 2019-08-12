@@ -5,7 +5,7 @@ using namespace Rcpp;
 extern "C" {
 #endif
 
-#include "skew.h"
+#include "multi_skew.h"
 
 #ifdef __cplusplus
 }
