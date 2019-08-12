@@ -254,7 +254,29 @@ void skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int is_v,
   }
 }
 
-SEXP skew_eval_c(int n_grid_points, int is_v, double mode, SEXP h, double mu, double omega, SEXP z)
+void multi_skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int code,
+                    double mode, double *h, double mu, double omega,
+                    double *z, double *ln_f)
+{
+  int i_draw;
+  switch (code) {
+    case 0: // spline draw, without v transformation
+    case 1: // spline draw, with (1) v transformation
+      for (i_draw = 0; i_draw < n_draws; i_draw++)
+        spline_skew_draw_eval(is_draw, n_grid_points, code, mode, h, mu, omega, z+i_draw, ln_f+i_draw);
+      break;
+
+    case 2: // old skew_draw
+      Skew_parameters skew;
+      Symmetric_Hermite sh;
+      for (i_draw = 0; i_draw < n_draws; i_draw++) {
+        skew_draw_eval(&skew, &sh, K_1_threshold, K_2_threshold);
+      }
+      break;
+  }
+}
+
+SEXP skew_eval_c(int n_grid_points, int code, double mode, SEXP h, double mu, double omega, SEXP z)
 {
   double *h_ptr, *z_ptr, *log_f_ptr;
   SEXP log_f;
@@ -264,12 +286,13 @@ SEXP skew_eval_c(int n_grid_points, int is_v, double mode, SEXP h, double mu, do
   h_ptr = REAL(h);
   z_ptr = REAL(z);
   log_f_ptr = REAL(log_f);
-  skew_draw_eval(FALSE, length(z), n_grid_points, is_v, mode, h_ptr, mu, omega, z_ptr, log_f_ptr);
+  multi_skew_draw_eval(FALSE, length(z), n_grid_points, code,
+                       mode, h_ptr, mu, omega, z_ptr, log_f_ptr);
   UNPROTECT(3);
   return log_f;
 }
 
-SEXP skew_draw_c(int n_grid_points, int is_v, double mode, SEXP h, double mu, double omega, int n_draws)
+SEXP skew_draw_c(int n_grid_points, int code, double mode, SEXP h, double mu, double omega, int n_draws)
 {
   double *h_ptr, *draws_ptr, *log_f_ptr;
   SEXP draws, log_f;
@@ -279,7 +302,8 @@ SEXP skew_draw_c(int n_grid_points, int is_v, double mode, SEXP h, double mu, do
   h_ptr = REAL(h);
   draws_ptr = REAL(draws);
   log_f_ptr = REAL(log_f);
-  skew_draw_eval(TRUE, n_draws, n_grid_points, is_v, mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
+  multi_skew_draw_eval(TRUE, n_draws, n_grid_points, code,
+                       mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
   UNPROTECT(3);
   return draws;
 }
