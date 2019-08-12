@@ -42,7 +42,7 @@ We can always write
 \begin{equation}\label{e:Fcompose}
   F_{e+}(x) = F_u(F_v(\Phi_+(x))),
 \end{equation}
-where $F_v(v) \equiv 1-(1-v)^{1-\delta}$ and $F_u(u)$ is defined by $F(u) \equiv F_{e+}(F_v^{-1}(\Phi_+(u)))$.
+where $F_v(v) \equiv 1-(1-v)^{1-\delta}$ and $F_u(u)$ is defined by $F_u(u) \equiv F_{e+}(F_v^{-1}(\Phi_+(u)))$.
 The point of the $F_v(v)$ function is to map a grid of evenly spaced points $u_i \in [0,1]$ to a grid of points $v_i \in [0,1]$ that are shifted towards one, which in turn correspond to points $x_i$ that are well in the tails of the distribution with cdf $F_{e+}(x)$.
 For now, the values $\delta=1/2$ (operations $(1-v)^\delta$ and $(1-u)^{1/(1-\delta)}$ are particularly efficient) and $\delta=0$ (no transformation) make most sense.
 

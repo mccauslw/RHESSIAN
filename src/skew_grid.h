@@ -9,6 +9,7 @@ typedef struct {
   double *x;
   double *xu;
   double *c;
+  double *cu;
   double *f_v;
   double *f_v_prime;
   double *x_plus;

@@ -22,9 +22,9 @@ extern "C" {
 //' A vector of evaluations of the log normalized target density
 //' @export
 // [[Rcpp::export]]
-NumericVector skew_eval_cpp(int n_grid_points, double mode, NumericVector h, double mu, double omega, NumericVector z)
+NumericVector skew_eval_cpp(int n_grid_points, int is_v, double mode, NumericVector h, double mu, double omega, NumericVector z)
 {
-  NumericVector log_f(skew_eval_c(n_grid_points, mode, h, mu, omega, z));
+  NumericVector log_f(skew_eval_c(n_grid_points, is_v, mode, h, mu, omega, z));
   return log_f;
 }
 
@@ -39,13 +39,13 @@ NumericVector skew_eval_cpp(int n_grid_points, double mode, NumericVector h, dou
 //' A vector of draws from the target distribution
 //' @export
 // [[Rcpp::export]]
-NumericVector skew_draw_cpp(int n_grid_points, double mode, NumericVector h, double mu, double omega, int n_draws)
+NumericVector skew_draw_cpp(int n_grid_points, int is_v, double mode, NumericVector h, double mu, double omega, int n_draws)
 {
-  NumericVector draws(skew_draw_c(n_grid_points, mode, h, mu, omega, n_draws));
+  NumericVector draws(skew_draw_c(n_grid_points, is_v, mode, h, mu, omega, n_draws));
   return draws;
 }
 
 /*** R
-skew_eval_cpp(6, 5, c(0, 0.4, 0.01, 0, 0), 4, 1.0, seq(0, 10, by=0.1))
-skew_draw_cpp(6, 5, c(0, 0.4, 0.01, 0, 0), 4, 1.0, 1000)
+skew_eval_cpp(6, TRUE, 5, c(0, 0.4, 0.01, 0, 0), 4, 1.0, seq(0, 10, by=0.1))
+skew_draw_cpp(6, TRUE, 5, c(0, 0.4, 0.01, 0, 0), 4, 1.0, 1000)
 */

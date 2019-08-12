@@ -18,9 +18,10 @@ for (K in seq(min_points, max_points)) {
   x = qnorm(0.5 + 0.5*v)
   xu = qnorm(0.5 + 0.5*u)
   c = 0.5/dnorm(x)
+  cu = 0.5/dnorm(xu)
   f_v = 0.5/sqrt(1-v)
   f_v_prime = 0.5 * f_v / (1-v)
-  v_names <- c('u', 'v', 'x', 'xu', 'c', 'f_v', 'f_v_prime')
+  v_names <- c('u', 'v', 'x', 'xu', 'c', 'cu', 'f_v', 'f_v_prime')
 
   # Create matrices
   #x_plus <- 0

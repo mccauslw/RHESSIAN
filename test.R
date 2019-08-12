@@ -19,11 +19,11 @@ h11 <- t^2*(t-1)
 plot(t, 345.6*h00 -1900.8*h10)
 
 # Test skew_eval_cpp
-n <- 20
-y_bar <- 5
-theta <- 5
-omega <- 25
-x_max <- 6.0; z_max <- x_max / sqrt(omega)
+n <- 5
+y_bar <- 2
+theta <- 2
+omega <- 9
+x_max <- 4.0; z_max <- x_max / sqrt(omega)
 n_pos <- 200
 #r <- 20; mu <- n*(theta-y_bar)/omega
 r <- 10; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
@@ -31,15 +31,18 @@ case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=n_pos)
 plot(case$z, case$phi - 0.5*omega*case$z^2, type='l')
 lines(case$z, case$phi, col='red')
 lines(case$z, -0.5*case$x^2, col='green')
+lines(case$z, case$phi_Taylor, col='purple')
 
 K <- 10
+is_v = 1
+mode = 0
+lnf <- skew_eval_cpp(K, is_v, mode, case$h, mu, omega, case$z)
+
 k <- 0:K
 u <- k/K; u[K+1] = (K-0.5)/K
 v <- 1-(1-u)^2
-x_knots <- qnorm(0.5 + 0.5*v)
+x_knots <- if (is_v) qnorm(0.5 + 0.5*v) else qnorm(0.5 + 0.5*u)
 z_knots <- x_knots / sqrt(omega)
-
-lnf <- skew_eval_cpp(K, 0, case$h, mu, omega, case$z)
 lines(case$z, lnf, col='blue')
 abline(v=z_knots)
 abline(v=-z_knots)

@@ -66,7 +66,10 @@ Po_GaPo <- function(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=1000) {
     phi_o = c*z - 0.5*n*(r+y_bar)*log((1 + th_by_r * exp(z))/(1 + th_by_r * exp(-z)))
     phi_e = -0.5*n*(r+y_bar)*(log(1 + th_by_r^2 + 2*th_by_r*cosh(z)) - 2*log(1 + th_by_r))
   }
+  phi_e_Taylor = 0.5 * (h_2 - omega) * z^2 - h_4 * z^4/24 + log(cosh(h_3 * z^3/6 + h_5 * z^5/120))
+  phi_Taylor = (h_2 - omega) * z^2/2 + h_3 * z^3/6 + h_4 * z^4/24 + h_5 * z^5/120
 
   list(h = c(0, 0, h_2, h_3, h_4, h_5), a = a, x = x, z = z,
-       phi = phi, phi_m = phi_m, phi_o = phi_o, phi_e = phi_e)
+       phi = phi, phi_m = phi_m, phi_o = phi_o, phi_e = phi_e,
+       phi_Taylor = phi_Taylor, phi_e_Taylor = phi_e_Taylor)
 }
