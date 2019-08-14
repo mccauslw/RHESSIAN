@@ -1,5 +1,6 @@
 #include <R.h>
 #include <Rinternals.h>
+//#include <Rinlinedfuns.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -72,6 +73,7 @@ SEXP skew_eval_c(int n_grid_points, int code, double mode, SEXP h, double mu, do
 SEXP skew_draw_c(int n_grid_points, int code, double mode, SEXP h, double mu, double omega, int n_draws)
 {
   double *h_ptr, *draws_ptr, *log_f_ptr;
+  const char *names[] = {"draws", "ln_f", ""};
   SEXP draws, log_f;
   h = PROTECT(coerceVector(h, REALSXP));
   draws = PROTECT(allocVector(REALSXP, n_draws));
@@ -81,6 +83,9 @@ SEXP skew_draw_c(int n_grid_points, int code, double mode, SEXP h, double mu, do
   log_f_ptr = REAL(log_f);
   multi_skew_draw_eval(TRUE, n_draws, n_grid_points, code,
                        mode, h_ptr, mu, omega, draws_ptr, log_f_ptr);
-  UNPROTECT(3);
-  return draws;
+  SEXP draws_and_evals = PROTECT(mkNamed(VECSXP, names));
+  SET_VECTOR_ELT(draws_and_evals, 0, draws);
+  SET_VECTOR_ELT(draws_and_evals, 1, log_f);
+  UNPROTECT(4);
+  return draws_and_evals;
 }

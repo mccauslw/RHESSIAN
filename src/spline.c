@@ -60,9 +60,9 @@ static inline double rbeta_3_2()
   return U[2]; // 2nd largest U(0,1) of four
 }
 
-static inline double rbeta_1_4() {return 1-rbeta_4_1();} // Draw a beta(1, 4) variate
-static inline double rbeta_2_3() {return 1-rbeta_3_2();} // Draw a beta(2, 3) variate
-static inline double rbeta_3_4() {return 1-rbeta_4_3();} // Draw a beta(3, 4) variate
+static inline double rbeta_1_4() {return 1.0-rbeta_4_1();} // Draw a beta(1, 4) variate
+static inline double rbeta_2_3() {return 1.0-rbeta_3_2();} // Draw a beta(2, 3) variate
+static inline double rbeta_3_4() {return 1.0-rbeta_4_3();} // Draw a beta(3, 4) variate
 
 void spline_eval(int n_knots, double *p, double *m, int n_evals, double *u, double *f_u)
 {
@@ -101,12 +101,12 @@ double inner_t_draw(double p_k, double m_k)
 
 double left_t_draw(double p_0, double m_0)
 {
-  return (rng_rand() < 3*p_0/(6*p_0+m_0)) ? rbeta_1_4() : rbeta_2_3();
+  return (rng_rand() * (6*p_0+m_0) < 3*p_0) ? rbeta_1_4() : rbeta_2_3();
 }
 
 double right_t_draw(double p_K, double m_K)
 {
-  return (rng_rand() < 3*p_K/(6*p_K-m_K)) ? rbeta_4_1() : rbeta_3_2();
+  return (rng_rand() * (6*p_K-m_K) < 3*p_K) ? rbeta_4_1() : rbeta_3_2();
 }
 
 void spline_draw(int n_knots, double *p, double *m, int n_draws, double *u)
