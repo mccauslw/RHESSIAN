@@ -46,7 +46,8 @@ static double r[max_knots];
 // Functions related to F_v(v) = 1-(1-v)^delta, for delta=0.5
 static inline double inverse_F_v(double u) {return 1.0-(1.0-u)*(1.0-u);}
 static inline double F_v(double v) {return 1.0 - sqrt(1.0-v);}
-static inline double ln_f_v(double v) {return log(0.5) - 0.5*log(1.0-v);}
+static inline double f_v(double v) {return 0.5/sqrt(1.0-v);}
+static inline double ln_f_v(double v) {return -M_LN2 - 0.5*log(1.0-v);}
 
 #ifndef max
 static inline double max(double a, double b) {return (a>b) ? a : b;}
@@ -294,6 +295,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     v = is_v ? inverse_F_v(u) : u;
     x = inverse_Phi(0.5 + 0.5*v);
     phi_o = phi_odd(x, a, x_bar);
+    Pr_negative = 1.0 / (1.0 + exp(2.0 * phi_o));
     if (rng_rand() < Pr_negative) {
       x = -x;
       phi_o = -phi_o;
@@ -324,7 +326,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
   // Compute terms of log approximate density
   double f_sign = (x > 0.0) ? 2.0 * (1.0 - Pr_negative) : 2.0 * Pr_negative;
-  *ln_f = log(f_u * f_sign) - log(pi_total * sigma[1]) + g->log_K;
+  *ln_f = log(f_u * f_sign / (pi_total * sigma[1])) + g->log_K;
   if (is_v)
     *ln_f += ln_f_v(v);
   *ln_f -= 0.5 * (log_2_pi + x*x);
