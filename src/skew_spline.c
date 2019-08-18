@@ -232,8 +232,10 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     done = 1;
   }
 
-  // Repeatable part of draw, in case a loop is desired.
-  double phi_o, exp_2_phi_o; // Odd part of phi function and exp of twice odd part
+  // Repeatable part of draw starts here, in case a loop is desired.
+
+  // Odd part of phi function and probability that x is negative
+  double phi_o, Pr_negative;
 
   // Normalize and draw or compute knot index.
   if (is_draw)
@@ -241,7 +243,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   else {
     x = (*z - mode)/sigma[1];
     phi_o = phi_odd(x, a, x_bar);
-    exp_2_phi_o = exp(2.0 * phi_o);
+    Pr_negative = 1.0 / (1.0 + exp(2.0 * phi_o));
     x_negative = (x < 0);
     x = fabs(x);
     v = (x==0) ? 0 : 2*Phi(x)-1;
@@ -292,7 +294,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     v = is_v ? inverse_F_v(u) : u;
     x = inverse_Phi(0.5 + 0.5*v);
     phi_o = phi_odd(x, a, x_bar);
-    if (rng_rand() * cosh(phi_o) * 2 < exp(-phi_o)) {
+    if (rng_rand() < Pr_negative) {
       x = -x;
       phi_o = -phi_o;
     }
@@ -321,9 +323,9 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   }
 
   // Compute terms of log approximate density
-  *ln_f = log(f_u) - log(pi_total) + g->log_K;
+  double f_sign = (x > 0.0) ? 2.0 * (1.0 - Pr_negative) : 2.0 * Pr_negative;
+  *ln_f = log(f_u * f_sign) - log(pi_total * sigma[1]) + g->log_K;
   if (is_v)
     *ln_f += ln_f_v(v);
-  *ln_f += 0.5 * (log(omega) - log_2_pi - x*x);
-  *ln_f += phi_o - log(cosh(phi_o));
+  *ln_f -= 0.5 * (log_2_pi + x*x);
 }
