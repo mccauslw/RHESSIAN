@@ -4,9 +4,14 @@
 \alias{skew_eval_cpp}
 \title{Call skew_eval_c function in skew.c}
 \usage{
-skew_eval_cpp(mode, h, mu, omega, z)
+skew_eval_cpp(n_grid_points, code, mode, h, mu, omega, z)
 }
 \arguments{
+\item{n_grid_points, }{number of spline grid points in f_u approximation}
+
+\item{code, }{0 for spline_skew_draw without v transformation, 1 for spline_skew_draw with v transformation,
+2 for old skew_draw}
+
 \item{mode}{A scalar, the mode of the target distribution}
 
 \item{h}{A vector, the first five derivatives of the log target distribution}

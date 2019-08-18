@@ -4,9 +4,14 @@
 \alias{skew_draw_cpp}
 \title{Call skew_draw_c function in skew.c}
 \usage{
-skew_draw_cpp(mode, h, mu, omega, n_draws)
+skew_draw_cpp(n_grid_points, code, mode, h, mu, omega, n_draws)
 }
 \arguments{
+\item{n_grid_points, }{number of spline grid points in f_u approximation}
+
+\item{code, }{0 for spline_skew_draw without v transformation, 1 for spline_skew_draw with v transformation,
+2 for old skew_draw}
+
 \item{mode}{A scalar, the mode of the target distribution}
 
 \item{h}{A vector, the first five derivatives of the log target distribution}
@@ -18,7 +23,8 @@ skew_draw_cpp(mode, h, mu, omega, n_draws)
 \item{n_draws}{A scalar integer, the number of draws to make}
 }
 \value{
-A vector of draws from the target distribution
+A list consisting of a vector of draws from the target distribution and a vector of corresponding
+log density evaluations.
 }
 \description{
 Call skew_draw_c function in skew.c
