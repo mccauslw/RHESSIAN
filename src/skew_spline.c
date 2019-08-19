@@ -20,7 +20,7 @@ const double sign_vector[6] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
 extern Grid *grids[];
 extern int min_grid_points, max_grid_points;
 
-static int K, Kp1;
+static int K, Kp1, k_bar;
 
 // These quantities depend on the current target parameters, so cannot be
 // precomputed. They have values at all grid points.
@@ -59,8 +59,9 @@ static inline double min(double a, double b) {return (a>b) ? b : a;}
 #define false (0)
 #endif
 
-static double sigma[max_h+1], a[max_h+1];
+static double sigma[max_h+1], a[max_h+1], ae_bar[max_h+1], ao_bar[max_h+1];
 static double m_0, m_K, m_Km1;
+static double *x1, *x2, *x3, *x4, *x5;
 
 // Compute m_k. Needs to be called only for knot K-1, knots k and k+1
 // satifying x_k < |x| < x_{k+1}
@@ -77,11 +78,17 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
   double *x_minus = is_v ? g->x_minus : g->xu_minus;
 
   // Compute derivatives phi_plus_prime/phi_minus_prime of phi_plus/phi_minus
-  double phi_plus_prime = 0.0, phi_minus_prime = 0.0;
-  for (i=1; i<=4; i++) {
-    phi_plus_prime += a[i+1] * x_plus[k + i*Kp1];
-    phi_minus_prime -= a[i+1] * x_minus[k + i*Kp1];
+  double phi_even_prime, phi_odd_prime, phi_plus_prime, phi_minus_prime;
+  if (k_bar < 0) {
+    phi_even_prime = a[2] * x1[k] + a[4] * x3[k];
+    phi_odd_prime = a[3] * x2[k] + a[5] * x4[k];
+  } else {
+    double d = (x1[k] - x1[k_bar]);
+    phi_even_prime = ((((ae_bar[3]/2)*d) + ae_bar[2])*d) + ae_bar[1];
+    phi_odd_prime = ((((ao_bar[3]/2)*d) + ao_bar[2])*d) + ao_bar[1];
   }
+  phi_plus_prime = phi_even_prime + phi_odd_prime;
+  phi_minus_prime = phi_even_prime - phi_odd_prime;
   double r_prime = 0.5*(exp_phi_plus[k] * phi_plus_prime
                         +exp_phi_minus[k] * phi_minus_prime);
 
@@ -106,8 +113,9 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 // Compute odd part of phi function
 static inline double phi_odd(double x, double *a, double x_bar)
 {
-  if (fabs(x) > x_bar) {
-    return x * fabs(x) * ((a[5]/120) * x_bar * x_bar + (a[3]/6)) * x_bar;
+  if (k_bar > 0 && (x > x1[k_bar])) {
+    double d = (x - x1[k_bar]);
+    return (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
   }
   else {
     double x2 = x*x;
@@ -166,15 +174,50 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
   // Evalute level p[k] = f_even at all grid points k = 0, 1, ..., K
   double *x_plus = is_v ? g->x_plus : g->xu_plus;
+  x1 = x_plus + 1*Kp1;
+  x2 = x_plus + 2*Kp1;
+  x3 = x_plus + 3*Kp1;
+  x4 = x_plus + 4*Kp1;
+  x5 = x_plus + 5*Kp1;
+
+  double plus_term, alt_term;
+  k_bar = -1;
   for (k=1; k<=K; k++) {
-    double plus_term = a[2] * x_plus[k + 2*Kp1] + a[4] * x_plus[k + 4*Kp1];
-    double alt_term = a[3] * x_plus[k + 3*Kp1] + a[5] * x_plus[k + 5*Kp1];
+    if (k_bar < 0) {
+      plus_term = a[2] * x2[k] + a[4] * x4[k];
+      alt_term = a[3] * x3[k] + a[5] * x5[k];
+    } else {
+      double diff = (x1[k] - x1[k_bar]);
+      plus_term = (((((ae_bar[3]/6)*diff + ae_bar[2]/2)*diff) + ae_bar[1])*diff) + ae_bar[0];
+      alt_term = (((((ao_bar[3]/6)*diff + ao_bar[2]/2)*diff) + ao_bar[1])*diff) + ao_bar[0];
+    }
     phi_plus[k] = plus_term + alt_term;
     phi_minus[k] = plus_term - alt_term;
     exp_phi_plus[k] = exp(phi_plus[k]);
     exp_phi_minus[k] = exp(phi_minus[k]);
     p[k] = r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
     if (is_v) p[k] *= g->f_v_inv[k];
+    double d2_plus = a[2] + a[4] * x2[k];
+    double d2_alt = a[3] * x1[k] + a[5] * x3[k];
+    if (k_bar < 0 && (max(d2_plus + d2_alt, d2_plus - d2_alt) > 0.5 * a[2])) {
+      k_bar = k;
+      ae_bar[0] = a[2]*x2[k] + a[4]*x4[k];
+      ao_bar[0] = a[3]*x3[k] + a[5]*x5[k];
+      ae_bar[1] = a[2]*x1[k] + a[4]*x3[k];
+      ao_bar[1] = a[3]*x2[k] + a[5]*x4[k];
+      ae_bar[2] = a[2]       + a[4]*x2[k];
+      ao_bar[2] = a[3]*x1[k] + a[5]*x3[k];
+      ae_bar[3] =              a[4]*x1[k];
+      ao_bar[3] = a[3]       + a[5]*x2[k];
+      //printf("k = %d, d2_plus = %lf, d2_alt = %lf\n", k, d2_plus, d2_alt);
+      //printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
+      //       a[2], a[3], a[4], a[5]);
+      //printf("x[k] = (%lf, %lf, %lf)\n", x1[k], x2[k], x3[k]);
+      //printf("ae_bar[0] = %lf, ae_bar[1] = %lf, ae_bar[2] = %lf, ae_bar[3] = %lf\n",
+      //       ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
+      //printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, ao_bar[3] = %lf\n",
+      //       ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
+    }
   }
 
   // Computation of p[K] and m[K] are based on true computed values

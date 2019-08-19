@@ -7,7 +7,7 @@ omega <- 1.09
 r <- 16.4; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
 
 x_max <- 5.0; z_max <- x_max / sqrt(omega)
-n_pos <- 20000
+n_pos <- 200 # 20000
 case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=n_pos)
 true_lnf = case$phi - 0.5*omega*case$z^2
 plot(case$z, true_lnf, type='l')
@@ -24,6 +24,8 @@ print(system.time(for(i in 1:100) li_old <- skew_draw_cpp(K, 2, mode, case$h, mu
 
 print(system.time(for(i in 1:100) new_lnf <- skew_eval_cpp(K, code, mode, case$h, mu, omega, case$z)))
 print(system.time(for(i in 1:100) old_lnf <- skew_eval_cpp(K, 2, mode, case$h, mu, omega, case$z)))
+
+#li = skew_draw_cpp(K, code, mode, case$h, mu, omega, 1)
 
 k <- 0:K
 u <- k/K; u[K+1] = (K-0.5)/K

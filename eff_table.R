@@ -1,6 +1,6 @@
 library(tidyverse)
 set.seed(5750418)
-n_cases = 50
+n_cases = 200
 tbl <- tibble(r = rgamma(n_cases, 2, rate=0.1),
               n = 1+rnbinom(n_cases, size=10, mu=3),
               theta = rgamma(n_cases, 2, rate=1),
