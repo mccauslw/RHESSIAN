@@ -67,15 +67,8 @@ static double *x1, *x2, *x3, *x4, *x5;
 // satifying x_k < |x| < x_{k+1}
 static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 {
-  int i; // Index of powers of z
-
   // For k==0, m[k] is a known value. Quickly return.
   if (k==0) return is_v ? m_0 : 0.0;
-
-  // Select x_plus or xu_plus grid depending on whether or not there is a
-  // u = F_(v) transformation (is_v is true) or not (is_v is false).
-  double *x_plus = is_v ? g->x_plus : g->xu_plus;
-  double *x_minus = is_v ? g->x_minus : g->xu_minus;
 
   // Compute derivatives phi_plus_prime/phi_minus_prime of phi_plus/phi_minus
   double phi_even_prime, phi_odd_prime, phi_plus_prime, phi_minus_prime;
@@ -111,11 +104,16 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 }
 
 // Compute odd part of phi function
-static inline double phi_odd(double x, double *a, double x_bar)
+static inline double phi_odd(double x, double *a)
 {
-  if (k_bar > 0 && (x > x1[k_bar])) {
-    double d = (x - x1[k_bar]);
-    return (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
+  double is_x_positive = (x > 0);
+  double abs_x = fabs(x);
+  if (k_bar > 0 && (abs_x > x1[k_bar])) {
+    double d = (abs_x - x1[k_bar]);
+    double phi_o = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
+    if (fabs(phi_o) > 5.0)
+      phi_o = (phi_o > 0) ? 5.0 : -5.0;
+    return is_x_positive ? phi_o : -phi_o;
   }
   else {
     double x2 = x*x;
@@ -154,7 +152,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
   K = g->K;
   Kp1 = K+1;
-  int x_negative = 0;
   m_0 = is_v ? (m_0K * g->K_inv) : 0.0;
 
   // Compute powers of sigma, the prior standard deviation
@@ -170,7 +167,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   //   h[2] z^2/2 + h[3] z^3/6 + h[4] z^4/24 + h[5] z^5/120
   for (i=2; i<=5; i++)
     a[i] = sigma[i] * h[i];
-  double x_bar = exp(log(12.0/fabs(a[3]))/3.0);
 
   // Evalute level p[k] = f_even at all grid points k = 0, 1, ..., K
   double *x_plus = is_v ? g->x_plus : g->xu_plus;
@@ -272,23 +268,23 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
              "p[K] = %le, m[K] = %le\np_Delta = %le, m_Delta = %le\n",
            p[K-1], m_Km1, p_tau, m_tau, p[K], m_K, p_Delta, m_Delta);
     printf("a2 = %lf, a3 = %lf, a4 = %lf, a5 = %lf\n", a[2], a[3], a[4], a[5]);
-    printf("x_bar = %lf\n", x_bar);
+    printf("k_bar = %d\n", k_bar);
     done = 1;
   }
 
   // Repeatable part of draw starts here, in case a loop is desired.
 
-  // Odd part of phi function and probability that x is negative
-  double phi_o, Pr_negative;
+  // Odd part of phi function and probability that sign of x is current sign
+  double phi_o, expm2phi_o, f_sign_recip;
 
   // Normalize and draw or compute knot index.
   if (is_draw)
     draw_discrete(K+2, pi, 1, &k);
   else {
     x = (*z - mode)/sigma[1];
-    phi_o = phi_odd(x, a, x_bar);
-    Pr_negative = 1.0 / (1.0 + exp(2.0 * phi_o));
-    x_negative = (x < 0);
+    phi_o = phi_odd(x, a);
+    expm2phi_o = exp(-2.0 * phi_o);
+    f_sign_recip = (1.0 + expm2phi_o);
     x = fabs(x);
     v = (x==0) ? 0 : 2*Phi(x)-1;
     u = is_v ? F_v(v) : v;
@@ -337,9 +333,10 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     u = (k+t)/K;
     v = is_v ? inverse_F_v(u) : u;
     x = inverse_Phi(0.5 + 0.5*v);
-    phi_o = phi_odd(x, a, x_bar);
-    Pr_negative = 1.0 / (1.0 + exp(2.0 * phi_o));
-    if (rng_rand() < Pr_negative) {
+    phi_o = phi_odd(x, a);
+    expm2phi_o = exp(-2.0 * phi_o);
+    f_sign_recip = 1.0 + expm2phi_o;
+    if (rng_rand() * f_sign_recip > 1.0) {
       x = -x;
       phi_o = -phi_o;
     }
@@ -368,9 +365,10 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   }
 
   // Compute terms of log approximate density
-  double f_sign = (x > 0.0) ? 2.0 * (1.0 - Pr_negative) : 2.0 * Pr_negative;
-  *ln_f = log(f_u * f_sign / (pi_total * sigma[1])) + g->log_K;
+  *ln_f = log(2.0 * f_u / (f_sign_recip * pi_total * sigma[1])) + g->log_K;
   if (is_v)
     *ln_f += ln_f_v(v);
+  if (x<0 && is_draw)
+    *ln_f += 2.0 * phi_o;
   *ln_f -= 0.5 * (log_2_pi + x*x);
 }
