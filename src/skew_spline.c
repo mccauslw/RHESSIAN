@@ -205,14 +205,16 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
       ao_bar[2] = a[3]*x1[k] + a[5]*x3[k];
       ae_bar[3] =              a[4]*x1[k];
       ao_bar[3] = a[3]       + a[5]*x2[k];
-      //printf("k = %d, d2_plus = %lf, d2_alt = %lf\n", k, d2_plus, d2_alt);
-      //printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
-      //       a[2], a[3], a[4], a[5]);
-      //printf("x[k] = (%lf, %lf, %lf)\n", x1[k], x2[k], x3[k]);
-      //printf("ae_bar[0] = %lf, ae_bar[1] = %lf, ae_bar[2] = %lf, ae_bar[3] = %lf\n",
-      //       ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
-      //printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, ao_bar[3] = %lf\n",
-      //       ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
+      if (*z == 16.8125) {
+        printf("k = %d, d2_plus = %lf, d2_alt = %lf\n", k, d2_plus, d2_alt);
+        printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
+               a[2], a[3], a[4], a[5]);
+        printf("x[k] = (%lf, %lf, %lf)\n", x1[k], x2[k], x3[k]);
+        printf("ae_bar[0] = %lf, ae_bar[1] = %lf, ae_bar[2] = %lf, ae_bar[3] = %lf\n",
+               ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
+        printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, ao_bar[3] = %lf\n",
+               ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
+      }
     }
   }
 
@@ -258,8 +260,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   pi_total += (pi[K] = 0.5*p[K] - m_K/12);       // Contribution of last knot
   pi_total += (pi[K+1] = 0.5*p_Delta);           // Contribution of tau knot
 
-  static int done = 0;
-  if (!done) {
+  if (*z == 16.8125 ) {
     for (k=0; k<=K+1; k++)
       printf("k=%d, pi[k]=%lf, p[k]=%lf\n", k, pi[k], p[k]);
     printf("pi_total=%lf\n", pi_total);
@@ -269,7 +270,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
            p[K-1], m_Km1, p_tau, m_tau, p[K], m_K, p_Delta, m_Delta);
     printf("a2 = %lf, a3 = %lf, a4 = %lf, a5 = %lf\n", a[2], a[3], a[4], a[5]);
     printf("k_bar = %d\n", k_bar);
-    done = 1;
   }
 
   // Repeatable part of draw starts here, in case a loop is desired.

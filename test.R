@@ -7,7 +7,7 @@ omega <- 1.09
 r <- 16.4; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
 
 x_max <- 5.0; z_max <- x_max / sqrt(omega)
-n_pos <- 200 # 20000
+n_pos <- 20000
 case <- Po_GaPo(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=n_pos)
 true_lnf = case$phi - 0.5*omega*case$z^2
 plot(case$z, true_lnf, type='l', ylim=c(-30,0))
@@ -16,8 +16,11 @@ plot(case$z, true_lnf, type='l', ylim=c(-30,0))
 lines(case$z, case$phi_Taylor, col='purple')
 
 K <- 16
-code = 1
+code = 0
 mode = 0
+
+z = 16.8125
+skew_eval_cpp(K, code, mode, case$h, mu, omega, z);
 
 print(system.time(for(i in 1:100) li_new <- skew_draw_cpp(K, code, mode, case$h, mu, omega, 40000)))
 print(system.time(for(i in 1:100) li_old <- skew_draw_cpp(K, 2, mode, case$h, mu, omega, 40000)))
