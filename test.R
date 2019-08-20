@@ -1,10 +1,16 @@
 # Test skew_eval_cpp
-n <- 2
-y_bar <- 0.5
-theta <- 2.92
-omega <- 1.09
-#r <- 20; mu <- n*(theta-y_bar)/omega
-r <- 16.4; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
+# n <- 2
+# y_bar <- 0.5
+# theta <- 2.92
+# omega <- 1.09
+# r <- 16.4; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
+n <- 3
+y_bar <- 1.33
+theta <- 2.69
+omega <- 0.569
+r <- 4.56; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
+
+#r <- Inf; mu <- n*(theta-y_bar)/omega
 
 x_max <- 5.0; z_max <- x_max / sqrt(omega)
 n_pos <- 20000
@@ -16,7 +22,7 @@ plot(case$z, true_lnf, type='l', ylim=c(-30,0))
 lines(case$z, case$phi_Taylor, col='purple')
 
 K <- 16
-code = 0
+code = 1
 mode = 0
 
 z = 16.8125

@@ -72,7 +72,7 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 
   // Compute derivatives phi_plus_prime/phi_minus_prime of phi_plus/phi_minus
   double phi_even_prime, phi_odd_prime, phi_plus_prime, phi_minus_prime;
-  if (k_bar < 0) {
+  if (k_bar < 0 || k <= k_bar) {
     phi_even_prime = a[2] * x1[k] + a[4] * x3[k];
     phi_odd_prime = a[3] * x2[k] + a[5] * x4[k];
   } else {
@@ -106,20 +106,19 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 // Compute odd part of phi function
 static inline double phi_odd(double x, double *a)
 {
-  double is_x_positive = (x > 0);
-  double abs_x = fabs(x);
+  double abs_x = fabs(x), phi_o;
   if (k_bar > 0 && (abs_x > x1[k_bar])) {
     double d = (abs_x - x1[k_bar]);
-    double phi_o = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
-    if (fabs(phi_o) > 5.0)
-      phi_o = (phi_o > 0) ? 5.0 : -5.0;
-    return is_x_positive ? phi_o : -phi_o;
+    phi_o = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
+    if (x < 0.0)
+      phi_o = -phi_o;
   }
   else {
     double x2 = x*x;
     double x3 = x2 * x;
-    return ((a[5]/120 * x2) + a[3]/6) * x3;
+    phi_o = ((a[5]/120 * x2) + a[3]/6) * x3;
   }
+  return 10.0 * tanh(0.1*phi_o);
 }
 
 /* If is_draw is true, draw from the skew_draw distribution and evaluate
@@ -176,26 +175,26 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   x4 = x_plus + 4*Kp1;
   x5 = x_plus + 5*Kp1;
 
-  double plus_term, alt_term;
+  double even_term, odd_term;
   k_bar = -1;
   for (k=1; k<=K; k++) {
     if (k_bar < 0) {
-      plus_term = a[2] * x2[k] + a[4] * x4[k];
-      alt_term = a[3] * x3[k] + a[5] * x5[k];
+      even_term = a[2] * x2[k] + a[4] * x4[k];
+      odd_term = a[3] * x3[k] + a[5] * x5[k];
     } else {
-      double diff = (x1[k] - x1[k_bar]);
-      plus_term = (((((ae_bar[3]/6)*diff + ae_bar[2]/2)*diff) + ae_bar[1])*diff) + ae_bar[0];
-      alt_term = (((((ao_bar[3]/6)*diff + ao_bar[2]/2)*diff) + ao_bar[1])*diff) + ao_bar[0];
+      double d = (x1[k] - x1[k_bar]);
+      even_term = (((((ae_bar[3]/6)*d + ae_bar[2]/2)*d) + ae_bar[1])*d) + ae_bar[0];
+      odd_term = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
     }
-    phi_plus[k] = plus_term + alt_term;
-    phi_minus[k] = plus_term - alt_term;
+    phi_plus[k] = even_term + odd_term;
+    phi_minus[k] = even_term - odd_term;
     exp_phi_plus[k] = exp(phi_plus[k]);
     exp_phi_minus[k] = exp(phi_minus[k]);
     p[k] = r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
     if (is_v) p[k] *= g->f_v_inv[k];
     double d2_plus = a[2] + a[4] * x2[k];
     double d2_alt = a[3] * x1[k] + a[5] * x3[k];
-    if (k_bar < 0 && (max(d2_plus + d2_alt, d2_plus - d2_alt) > 0.5 * a[2])) {
+    if (k_bar < 0 && (max(d2_plus + d2_alt, d2_plus - d2_alt) > 0.2 * a[2])) {
       k_bar = k;
       ae_bar[0] = a[2]*x2[k] + a[4]*x4[k];
       ao_bar[0] = a[3]*x3[k] + a[5]*x5[k];
@@ -219,7 +218,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   }
 
   // Computation of p[K] and m[K] are based on true computed values
-  double c_p = 0.1, c_m = 0.1;
+  double c_p = 0.002, c_m = 0.002;
   double p_tau = p[K], m_tau = compute_m_k(K, g, is_v, false);
   m_Km1 = compute_m_k(K-1, g, is_v, false);
   if (is_v) {
@@ -261,8 +260,10 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   pi_total += (pi[K+1] = 0.5*p_Delta);           // Contribution of tau knot
 
   if (*z == 16.8125 ) {
-    for (k=0; k<=K+1; k++)
-      printf("k=%d, pi[k]=%lf, p[k]=%lf\n", k, pi[k], p[k]);
+    for (k=0; k<=K+1; k++) {
+      double mk = (k==(K+1)) ? 0.0 : compute_m_k(k, g, is_v, 0);
+      printf("k=%d, pi[k]=%lf, p[k]=%lf, m[k]=%lf\n", k, pi[k], p[k], mk);
+    }
     printf("pi_total=%lf\n", pi_total);
 
     printf("p[K-1] = %le, m[K-1] = %le\np_tau = %le, m_tau = %le\n"
