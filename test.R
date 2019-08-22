@@ -43,6 +43,13 @@ lines(case$z, new_lnf, col='red')
 abline(v=z_knots)
 abline(v=-z_knots)
 
+plot(case$z, case$phi, type='l', ylim=c(-30, 0))
+lines(case$z, new_lnf + 0.5*omega*case$z^2, col='red')
+lines(case$z, old_lnf + 0.5*omega*case$z^2, col='green')
+lines(case$z, case$phi_Taylor + 0.5*omega*case$z^2, col='purple')
+abline(v=z_knots)
+abline(v=-z_knots)
+
 plot(case$z, new_lnf - true_lnf, type='l', col='red', xlim=c(-z_max, z_max), ylim=c(-2,2))
 lines(case$z, old_lnf - true_lnf, type='l', col='green')
 abline(v=z_knots)

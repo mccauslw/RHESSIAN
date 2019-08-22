@@ -204,6 +204,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
       ao_bar[2] = a[3]*x1[k] + a[5]*x3[k];
       ae_bar[3] =              a[4]*x1[k];
       ao_bar[3] = a[3]       + a[5]*x2[k];
+
       if (*z == 16.8125) {
         printf("k = %d, d2_plus = %lf, d2_alt = %lf\n", k, d2_plus, d2_alt);
         printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
@@ -213,6 +214,12 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
                ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
         printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, ao_bar[3] = %lf\n",
                ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
+        printf("a+_bar[0] = %lf, a+_bar[1] = %lf, a+_bar[2] = %lf, a+_bar[3] = %lf\n",
+               ae_bar[0] + ao_bar[0], ae_bar[1] + ao_bar[1],
+               ae_bar[2] + ao_bar[2], ae_bar[3] + ao_bar[3]);
+        printf("a-_bar[0] = %lf, a-_bar[1] = %lf, a-_bar[2] = %lf, a-_bar[3] = %lf\n",
+               ae_bar[0] - ao_bar[0], ae_bar[1] - ao_bar[1],
+               ae_bar[2] - ao_bar[2], ae_bar[3] - ao_bar[3]);
       }
     }
   }
