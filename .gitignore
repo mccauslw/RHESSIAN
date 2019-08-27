@@ -2,6 +2,8 @@
 inst/doc
 .Rhistory
 .DS_Store
+R/.DS_Store
 vignettes/flexeven_cache
 inst/.DS_Store
 Rplot*.pdf
+NAMESPACE
