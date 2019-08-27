@@ -9,7 +9,7 @@
 #include "spline.h"
 
 #define max_h 5
-#define max_knots 22
+#define max_K 22
 
 // Used options(digits=22), log(sqrt(2/pi)) in R
 const double log_2_pi = 1.837877066409345339082;
@@ -20,7 +20,7 @@ const double sign_vector[6] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
 extern Grid *grids[];
 extern int min_grid_points, max_grid_points;
 
-static int K, Kp1, k_bar;
+static int K, Kp1, k_bar_plus, k_bar_minus;
 
 // These quantities depend on the current target parameters, so cannot be
 // precomputed. They have values at all grid points.
@@ -28,20 +28,20 @@ static int K, Kp1, k_bar;
 
 // Level p of spline density at grid points and component probabilities of
 // spline density
-static double p[max_knots];   // Spline values (levels)
-static double pi[max_knots];  // Component probabilities
+static double p[max_K];   // Spline values (levels)
+static double pi[max_K];  // Component probabilities
 
 // If phi(z) is a function approximating log f(y|z), then
 // phi+(z) = phi(z) for z>=0, and phi-(z) = phi(-z) for z>=0.
 // The next two vectors are values of these functions on a grid of (positive)
 // values of z.
-static double phi_plus[max_knots];  // a_2 x^2/2 + a_3 x^3/6 + a_4 x^4/24 + a_5 x^5/120
-static double phi_minus[max_knots]; // a_2 x^2/2 - a_3 x^3/6 + a_4 x^4/24 - a_5 x^5/120
+static double phi_plus[max_K];  // a2 x^2/2 + a3 x^3/6 + a4 x^4/24 + a5 x^5/120
+static double phi_minus[max_K]; // a2 x^2/2 - a3 x^3/6 + a4 x^4/24 - a5 x^5/120
 
 // Other evaluations
-static double exp_phi_plus[max_knots];
-static double exp_phi_minus[max_knots];
-static double r[max_knots];
+static double exp_phi_plus[max_K];
+static double exp_phi_minus[max_K];
+static double r[max_K];
 
 // Functions related to F_v(v) = 1-(1-v)^delta, for delta=0.5
 static inline double inverse_F_v(double u) {return 1.0-(1.0-u)*(1.0-u);}
@@ -59,7 +59,9 @@ static inline double min(double a, double b) {return (a>b) ? b : a;}
 #define false (0)
 #endif
 
-static double sigma[max_h+1], a[max_h+1], ae_bar[max_h+1], ao_bar[max_h+1];
+static double sigma[max_h + 1], a[max_h + 1];
+static double ae_bar[max_h + 1], ao_bar[max_h + 1];
+static double a_bar_plus[max_h + 1], a_bar_minus[max_h + 1];
 static double m_0, m_K, m_Km1;
 static double *x1, *x2, *x3, *x4, *x5;
 
@@ -129,7 +131,7 @@ static inline double phi_odd(double x, double *a)
  *  n_grid_points: number of grid points in precomputed grid
  *  is_v:          whether or not to do v = F_v^{-1}(u) transformation
  *  mode:          mode of the skew_draw distribution
- *  h:             vector of derivatives (h[2] through h[5] used) of phi at mode
+ *  h:             vector of derivatives (h[2] - h[5] used) of phi at mode
  *  mu:            prior mean
  *  omega:         prior precision
  *
@@ -175,27 +177,44 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   x4 = x_plus + 4*Kp1;
   x5 = x_plus + 5*Kp1;
 
-  double even_term, odd_term;
-  k_bar = -1;
+  k_bar_plus = -1;
+  k_bar_minus = -1;
   for (k=1; k<=K; k++) {
-    if (k_bar < 0) {
+    double even_term, odd_term;
+    if (k_bar_plus < 0 || k_bar_minus < 0) {
       even_term = a[2] * x2[k] + a[4] * x4[k];
       odd_term = a[3] * x3[k] + a[5] * x5[k];
-    } else {
-      double d = (x1[k] - x1[k_bar]);
-      even_term = (((((ae_bar[3]/6)*d + ae_bar[2]/2)*d) + ae_bar[1])*d) + ae_bar[0];
-      odd_term = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
     }
-    phi_plus[k] = even_term + odd_term;
-    phi_minus[k] = even_term - odd_term;
+
+    if (k_bar_plus < 0)
+      phi_plus[k] = even_term + odd_term;
+    else {
+      double d = (x1[k] - x1[k_bar_plus]);
+      phi_plus[k] = (((((a_bar_plus[3]/6)*d + a_bar_plus[2]/2)*d)
+                        + a_bar_plus[1])*d) + a_bar_plus[0];
+    }
+
+    if (k_bar_minus < 0)
+      phi_minus[k] = even_term - odd_term;
+    else {
+      double d = (x1[k] - x1[k_bar_minus]);
+      phi_minus[k] = (((((a_bar_minus[3]/6)*d + a_bar_minus[2]/2)*d)
+                         + a_bar_minus[1])*d) + a_bar_minus[0];
+    }
+
     exp_phi_plus[k] = exp(phi_plus[k]);
     exp_phi_minus[k] = exp(phi_minus[k]);
     p[k] = r[k] = 0.5 * (exp_phi_plus[k] + exp_phi_minus[k]);
     if (is_v) p[k] *= g->f_v_inv[k];
-    double d2_plus = a[2] + a[4] * x2[k];
-    double d2_alt = a[3] * x1[k] + a[5] * x3[k];
-    if (k_bar < 0 && (max(d2_plus + d2_alt, d2_plus - d2_alt) > 0.2 * a[2])) {
-      k_bar = k;
+
+    double d2_e = a[2] + a[4] * x2[k];
+    double d2_o = a[3] * x1[k] + a[5] * x3[k];
+    double c_k = 0.2;
+    if (k_bar_plus < 0 && d2_e + d2_o > c_k * a[2])
+      k_bar_plus = k;
+    if (k_bar_minus < 0 && d2_e - d2_o > c_k * a[2])
+      k_bar_minus = k;
+    if (k_bar_minus == k || k_bar_plus == k) {
       ae_bar[0] = a[2]*x2[k] + a[4]*x4[k];
       ao_bar[0] = a[3]*x3[k] + a[5]*x5[k];
       ae_bar[1] = a[2]*x1[k] + a[4]*x3[k];
@@ -204,24 +223,33 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
       ao_bar[2] = a[3]*x1[k] + a[5]*x3[k];
       ae_bar[3] =              a[4]*x1[k];
       ao_bar[3] = a[3]       + a[5]*x2[k];
-
       if (*z == 16.8125) {
-        printf("k = %d, d2_plus = %lf, d2_alt = %lf\n", k, d2_plus, d2_alt);
+        printf("k = %d, d2_e = %lf, d2_o = %lf\n", k, d2_e, d2_o);
         printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
                a[2], a[3], a[4], a[5]);
         printf("x[k] = (%lf, %lf, %lf)\n", x1[k], x2[k], x3[k]);
-        printf("ae_bar[0] = %lf, ae_bar[1] = %lf, ae_bar[2] = %lf, ae_bar[3] = %lf\n",
+        printf("ae_bar[0] = %lf, ae_bar[1] = %lf, "
+               "ae_bar[2] = %lf, ae_bar[3] = %lf\n",
                ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
-        printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, ao_bar[3] = %lf\n",
+        printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, "
+               "ao_bar[3] = %lf\n",
                ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
-        printf("a+_bar[0] = %lf, a+_bar[1] = %lf, a+_bar[2] = %lf, a+_bar[3] = %lf\n",
+        printf("a+_bar[0] = %lf, a+_bar[1] = %lf, a+_bar[2] = %lf, "
+               "a+_bar[3] = %lf\n",
                ae_bar[0] + ao_bar[0], ae_bar[1] + ao_bar[1],
                ae_bar[2] + ao_bar[2], ae_bar[3] + ao_bar[3]);
-        printf("a-_bar[0] = %lf, a-_bar[1] = %lf, a-_bar[2] = %lf, a-_bar[3] = %lf\n",
+        printf("a-_bar[0] = %lf, a-_bar[1] = %lf, a-_bar[2] = %lf, "
+               "a-_bar[3] = %lf\n",
                ae_bar[0] - ao_bar[0], ae_bar[1] - ao_bar[1],
                ae_bar[2] - ao_bar[2], ae_bar[3] - ao_bar[3]);
       }
     }
+    if (k_bar_plus == k)
+      for (i=0; i<=3; i++)
+        a_bar_plus[i] = ae_bar[i] + ao_bar[i];
+    if (k_bar_minus == k)
+      for (i=0; i<=3; i++)
+        a_bar_minus[i] = ae_bar[i] - ao_bar[i];
   }
 
   // Computation of p[K] and m[K] are based on true computed values
@@ -277,7 +305,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
              "p[K] = %le, m[K] = %le\np_Delta = %le, m_Delta = %le\n",
            p[K-1], m_Km1, p_tau, m_tau, p[K], m_K, p_Delta, m_Delta);
     printf("a2 = %lf, a3 = %lf, a4 = %lf, a5 = %lf\n", a[2], a[3], a[4], a[5]);
-    printf("k_bar = %d\n", k_bar);
+    printf("k_bar_plus = %d, k_bar_minus = %d\n", k_bar_plus, k_bar_minus);
   }
 
   // Repeatable part of draw starts here, in case a loop is desired.
@@ -351,7 +379,8 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     *z = x*sigma[1] + mode;
   }
   else {
-    m_kp1 = (k==K-1) ? m_K : ((k==K-2) ? m_Km1 : compute_m_k(k+1, g, is_v, true));
+    m_kp1 = (k==K-1) ? m_K
+                     : ((k==K-2) ? m_Km1 : compute_m_k(k+1, g, is_v, true));
   }
 
   // Compute exact value of log approximate density

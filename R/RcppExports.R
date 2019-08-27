@@ -14,6 +14,9 @@ alias_cpp <- function(x, n_draws) {
 
 #' Call skew_eval_c function in skew.c
 #'
+#' @param n_grid_points, number of spline grid points in f_u approximation
+#' @param code, 0 for spline_skew_draw without v transformation, 1 for spline_skew_draw with v transformation,
+#' 2 for old skew_draw
 #' @param mode A scalar, the mode of the target distribution
 #' @param h A vector, the first five derivatives of the log target distribution
 #' @param mu A scalar, the prior mean
@@ -22,22 +25,26 @@ alias_cpp <- function(x, n_draws) {
 #' @return
 #' A vector of evaluations of the log normalized target density
 #' @export
-skew_eval_cpp <- function(mode, h, mu, omega, z) {
-    .Call(`_RHESSIAN_skew_eval_cpp`, mode, h, mu, omega, z)
+skew_eval_cpp <- function(n_grid_points, code, mode, h, mu, omega, z) {
+    .Call(`_RHESSIAN_skew_eval_cpp`, n_grid_points, code, mode, h, mu, omega, z)
 }
 
 #' Call skew_draw_c function in skew.c
 #'
+#' @param n_grid_points, number of spline grid points in f_u approximation
+#' @param code, 0 for spline_skew_draw without v transformation, 1 for spline_skew_draw with v transformation,
+#' 2 for old skew_draw
 #' @param mode A scalar, the mode of the target distribution
 #' @param h A vector, the first five derivatives of the log target distribution
 #' @param mu A scalar, the prior mean
 #' @param omega A scalar, the prior precision
 #' @param n_draws A scalar integer, the number of draws to make
 #' @return
-#' A vector of draws from the target distribution
+#' A list consisting of a vector of draws from the target distribution and a vector of corresponding
+#' log density evaluations.
 #' @export
-skew_draw_cpp <- function(mode, h, mu, omega, n_draws) {
-    .Call(`_RHESSIAN_skew_draw_cpp`, mode, h, mu, omega, n_draws)
+skew_draw_cpp <- function(n_grid_points, code, mode, h, mu, omega, n_draws) {
+    .Call(`_RHESSIAN_skew_draw_cpp`, n_grid_points, code, mode, h, mu, omega, n_draws)
 }
 
 #' Call C language spline_eval_c function
