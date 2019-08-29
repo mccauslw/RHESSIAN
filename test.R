@@ -8,7 +8,16 @@ n <- 3
 y_bar <- 1.33
 theta <- 2.69
 omega <- 0.569
-r <- 4.56; mu <- n*r*(theta-y_bar)/(omega*(r+theta))
+r <- 4.56
+
+i = 269
+n <- tbl[[i, 'n']]
+y_bar <- tbl[[i, 'y_bar']]
+theta <- tbl[[i, 'theta']]
+omega <- tbl[[i, 'omega']]
+r <- tbl[[i, 'r']]
+
+mu <- n*r*(theta-y_bar)/(omega*(r+theta))
 
 #r <- Inf; mu <- n*(theta-y_bar)/omega
 
@@ -21,7 +30,7 @@ plot(case$z, true_lnf, type='l', ylim=c(-30,0))
 #lines(case$z, -0.5*case$x^2, col='green')
 lines(case$z, case$phi_Taylor, col='purple')
 
-K <- 16
+K <- 20
 code = 1
 mode = 0
 

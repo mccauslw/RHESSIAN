@@ -1,13 +1,13 @@
 library(tidyverse)
 set.seed(5750418)
-n_cases = 200
+n_cases = 500
 tbl <- tibble(r = rgamma(n_cases, 2, rate=0.1),
               n = 1+rnbinom(n_cases, size=10, mu=3),
               theta = rgamma(n_cases, 2, rate=1),
               y_bar = rnbinom(n_cases, size=r/4, mu=theta)/n,
               omega = rgamma(n_cases, 2, rate=0.2),
               a2 = 0, a3 = 0, a4 = 0, a5 = 0,
-              e_old = 0, e8_0 = 0, e8_1 = 0, e16_0 = 0, e16_1 = 0)
+              e_old = 0, e20_0 = 0, e20_1 = 0)
 
 #Po_GaPo <- function(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=1000)
 
@@ -32,18 +32,24 @@ for (i in 1:n_cases) {
 
   lnf <- skew_eval_cpp(K, 2, mode, case_info$h, mu, omega, case_info$z)
   eff_results <- eff(lnf, true_lnf, z_max, n_pos)
-  #print(eff_results)
   tbl$e_old[i] <- eff_results$sd_w
-  for (K in c(8, 16)) {
+  for (K in c(20)) {
     for (code in c(0, 1)) {
       name = sprintf("e%d_%d", K, code)
       lnf <- skew_eval_cpp(K, code, mode, case_info$h, mu, omega, case_info$z)
       eff_results <- eff(lnf, true_lnf, z_max, n_pos)
-      #print(eff_results)
       tbl[[name]][i] <- eff_results$sd_w
     }
   }
 }
 
-tbl_screen <- filter(tbl, omega < 5)
+tbl <- mutate(tbl, ln_adv = log(e_old) - log(e20_1),
+              a3n = a3/(-a2)^1.5, a4n = a4/(-a2)^2, a5n = a5/(-a2)^2.5)
+
+mylm <- lm(formula = ln_adv ~ log(-a2) + abs(a3n) + abs(a4n), data = tbl)
+summary(mylm)
+
+plot(tbl$a2, tbl$a3, pch=20, xlim=c(-3, 0), ylim = c(-1, 0.5))
+points(tbl$a2[tbl$ln_adv>0], tbl$a3[tbl$ln_adv>0], col='red')
+
 

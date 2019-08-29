@@ -61,9 +61,26 @@ static inline double min(double a, double b) {return (a>b) ? b : a;}
 
 static double sigma[max_h + 1], a[max_h + 1];
 static double ae_bar[max_h + 1], ao_bar[max_h + 1];
-static double a_bar_plus[max_h + 1], a_bar_minus[max_h + 1];
+static double a_bar_plus[4], a_bar_minus[4];         // Cubic approximation
+static double a_bar_bar_plus[2], a_bar_bar_minus[2]; // Linear approximation
+static double x_linear_plus = DBL_MAX, x_linear_minus = DBL_MAX;
 static double m_0, m_K, m_Km1;
 static double *x1, *x2, *x3, *x4, *x5;
+
+static inline double cubic_Taylor(double *d, double x)
+{
+  return (( (d[3]/6)*x + d[2]/2 )*x + d[1])*x + d[0];
+}
+
+static inline double quad_Taylor(double *d, double x)
+{
+  return ( (d[2]/2)*x + d[1] )*x + d[0];
+}
+
+static inline double linear_Taylor(double *d, double x)
+{
+  return d[1]*x + d[0];
+}
 
 // Compute m_k. Needs to be called only for knot K-1, knots k and k+1
 // satifying x_k < |x| < x_{k+1}
@@ -74,16 +91,32 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 
   // Compute derivatives phi_plus_prime/phi_minus_prime of phi_plus/phi_minus
   double phi_even_prime, phi_odd_prime, phi_plus_prime, phi_minus_prime;
-  if (k_bar < 0 || k <= k_bar) {
+  int cubic_plus = (k_bar_plus > 0) && (k > k_bar_plus);
+  int cubic_minus = (k_bar_minus > 0) && (k > k_bar_minus);
+
+  if (!cubic_plus || !cubic_minus) {
     phi_even_prime = a[2] * x1[k] + a[4] * x3[k];
     phi_odd_prime = a[3] * x2[k] + a[5] * x4[k];
-  } else {
-    double d = (x1[k] - x1[k_bar]);
-    phi_even_prime = ((((ae_bar[3]/2)*d) + ae_bar[2])*d) + ae_bar[1];
-    phi_odd_prime = ((((ao_bar[3]/2)*d) + ao_bar[2])*d) + ao_bar[1];
   }
-  phi_plus_prime = phi_even_prime + phi_odd_prime;
-  phi_minus_prime = phi_even_prime - phi_odd_prime;
+
+  if (cubic_plus) {
+    double delta = (x1[k] - x1[k_bar_plus]);
+    if (delta < x_linear_plus)
+      phi_plus_prime = quad_Taylor(a_bar_plus+1, delta);
+    else
+      phi_plus_prime = a_bar_bar_plus[1];
+  } else
+    phi_plus_prime = phi_even_prime + phi_odd_prime;
+
+  if (cubic_minus) {
+    double delta = (x1[k] - x1[k_bar_minus]);
+    if (delta < x_linear_minus)
+      phi_minus_prime = quad_Taylor(a_bar_minus+1, delta);
+    else
+      phi_minus_prime = a_bar_bar_minus[1];
+  } else
+    phi_minus_prime = phi_even_prime - phi_odd_prime;
+
   double r_prime = 0.5*(exp_phi_plus[k] * phi_plus_prime
                         +exp_phi_minus[k] * phi_minus_prime);
 
@@ -108,19 +141,39 @@ static inline double compute_m_k(int k, Grid *g, int is_v, int is_trunc)
 // Compute odd part of phi function
 static inline double phi_odd(double x, double *a)
 {
-  double abs_x = fabs(x), phi_o;
-  if (k_bar > 0 && (abs_x > x1[k_bar])) {
-    double d = (abs_x - x1[k_bar]);
-    phi_o = (((((ao_bar[3]/6)*d + ao_bar[2]/2)*d) + ao_bar[1])*d) + ao_bar[0];
-    if (x < 0.0)
-      phi_o = -phi_o;
+  double abs_x = fabs(x), phi_o, phi_e;
+  double phi_plus_abs_x, phi_minus_abs_x;
+  int cubic_plus = (k_bar_plus > 0) && (abs_x > x1[k_bar_plus]);
+  int cubic_minus = (k_bar_minus > 0) && (abs_x > x1[k_bar_minus]);
+
+  if (!cubic_plus || !cubic_minus) {
+    double x_sq = x*x;
+    double x_cubed = x_sq * abs_x;
+    phi_o = ((a[5]/120 * x_sq) + a[3]/6) * x_cubed;
+    phi_e = ((a[4]/24 * x_sq) + a[2]/2) * x_sq;
+    phi_plus_abs_x = phi_e + phi_o;
+    phi_minus_abs_x = phi_e - phi_o;
   }
-  else {
-    double x2 = x*x;
-    double x3 = x2 * x;
-    phi_o = ((a[5]/120 * x2) + a[3]/6) * x3;
+
+  if (cubic_plus) {
+    double delta = abs_x - x1[k_bar_plus];
+    if (delta > x_linear_plus)
+      phi_plus_abs_x = linear_Taylor(a_bar_bar_plus, delta - x_linear_plus);
+    else
+      phi_plus_abs_x = cubic_Taylor(a_bar_plus, delta);
   }
-  return 10.0 * tanh(0.1*phi_o);
+
+  if (cubic_minus) {
+    double delta = abs_x - x1[k_bar_minus];
+    if (delta > x_linear_minus)
+      phi_minus_abs_x = linear_Taylor(a_bar_bar_minus, delta - x_linear_minus);
+    else
+      phi_minus_abs_x = cubic_Taylor(a_bar_minus, delta);
+  }
+  phi_o = 0.5 * (phi_plus_abs_x - phi_minus_abs_x);
+  if (x < 0.0)
+    phi_o = -phi_o;
+  return phi_o;
 }
 
 /* If is_draw is true, draw from the skew_draw distribution and evaluate
@@ -189,17 +242,21 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     if (k_bar_plus < 0)
       phi_plus[k] = even_term + odd_term;
     else {
-      double d = (x1[k] - x1[k_bar_plus]);
-      phi_plus[k] = (((((a_bar_plus[3]/6)*d + a_bar_plus[2]/2)*d)
-                        + a_bar_plus[1])*d) + a_bar_plus[0];
+      double delta = x1[k] - x1[k_bar_plus];
+      if (delta > x_linear_plus)
+        phi_plus[k] = linear_Taylor(a_bar_bar_plus, delta - x_linear_plus);
+      else
+        phi_plus[k] = cubic_Taylor(a_bar_plus, delta);
     }
 
     if (k_bar_minus < 0)
       phi_minus[k] = even_term - odd_term;
     else {
-      double d = (x1[k] - x1[k_bar_minus]);
-      phi_minus[k] = (((((a_bar_minus[3]/6)*d + a_bar_minus[2]/2)*d)
-                         + a_bar_minus[1])*d) + a_bar_minus[0];
+      double delta = x1[k] - x1[k_bar_minus];
+      if (delta > x_linear_minus)
+        phi_minus[k] = linear_Taylor(a_bar_bar_minus, delta - x_linear_minus);
+      else
+        phi_minus[k] = cubic_Taylor(a_bar_minus, delta);
     }
 
     exp_phi_plus[k] = exp(phi_plus[k]);
@@ -209,7 +266,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
     double d2_e = a[2] + a[4] * x2[k];
     double d2_o = a[3] * x1[k] + a[5] * x3[k];
-    double c_k = 0.2;
+    double c_k = 0.5;
     if (k_bar_plus < 0 && d2_e + d2_o > c_k * a[2])
       k_bar_plus = k;
     if (k_bar_minus < 0 && d2_e - d2_o > c_k * a[2])
@@ -223,33 +280,25 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
       ao_bar[2] = a[3]*x1[k] + a[5]*x3[k];
       ae_bar[3] =              a[4]*x1[k];
       ao_bar[3] = a[3]       + a[5]*x2[k];
-      if (*z == 16.8125) {
-        printf("k = %d, d2_e = %lf, d2_o = %lf\n", k, d2_e, d2_o);
-        printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
-               a[2], a[3], a[4], a[5]);
-        printf("x[k] = (%lf, %lf, %lf)\n", x1[k], x2[k], x3[k]);
-        printf("ae_bar[0] = %lf, ae_bar[1] = %lf, "
-               "ae_bar[2] = %lf, ae_bar[3] = %lf\n",
-               ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
-        printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, "
-               "ao_bar[3] = %lf\n",
-               ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
-        printf("a+_bar[0] = %lf, a+_bar[1] = %lf, a+_bar[2] = %lf, "
-               "a+_bar[3] = %lf\n",
-               ae_bar[0] + ao_bar[0], ae_bar[1] + ao_bar[1],
-               ae_bar[2] + ao_bar[2], ae_bar[3] + ao_bar[3]);
-        printf("a-_bar[0] = %lf, a-_bar[1] = %lf, a-_bar[2] = %lf, "
-               "a-_bar[3] = %lf\n",
-               ae_bar[0] - ao_bar[0], ae_bar[1] - ao_bar[1],
-               ae_bar[2] - ao_bar[2], ae_bar[3] - ao_bar[3]);
-      }
     }
-    if (k_bar_plus == k)
+    if (k_bar_plus == k) {
       for (i=0; i<=3; i++)
         a_bar_plus[i] = ae_bar[i] + ao_bar[i];
-    if (k_bar_minus == k)
+      if (a_bar_plus[3] > 0.0) {
+        x_linear_plus = fabs(a_bar_plus[2]/a_bar_plus[3]);
+        a_bar_bar_plus[0] = cubic_Taylor(a_bar_plus, x_linear_plus);
+        a_bar_bar_plus[1] = quad_Taylor(a_bar_plus+1, x_linear_plus);
+      }
+    }
+    if (k_bar_minus == k) {
       for (i=0; i<=3; i++)
         a_bar_minus[i] = ae_bar[i] - ao_bar[i];
+      if (a_bar_minus[3] > 0.0) {
+        x_linear_minus = fabs(a_bar_minus[2]/a_bar_minus[3]);
+        a_bar_bar_minus[0] = cubic_Taylor(a_bar_minus, x_linear_minus);
+        a_bar_bar_minus[1] = quad_Taylor(a_bar_minus+1, x_linear_minus);
+      }
+    }
   }
 
   // Computation of p[K] and m[K] are based on true computed values
@@ -295,6 +344,33 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   pi_total += (pi[K+1] = 0.5*p_Delta);           // Contribution of tau knot
 
   if (*z == 16.8125 ) {
+    printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
+           a[2], a[3], a[4], a[5]);
+    printf("k_bar_plus = %d, k_bar_minus = %d\n", k_bar_plus, k_bar_minus);
+    if (k_bar_plus > 0)
+      printf("x[k_bar_plus] = (%lf, %lf, %lf), x_linear_plus = %lf\n",
+             x1[k_bar_plus], x2[k_bar_plus], x3[k_bar_plus], x_linear_plus);
+    if (k_bar_minus > 0)
+      printf("x[k_bar_minus] = (%lf, %lf, %lf), x_linear_minus = %lf\n",
+             x1[k_bar_minus], x2[k_bar_minus], x3[k_bar_minus], x_linear_minus);
+
+    printf("ae_bar[0] = %lf, ae_bar[1] = %lf, "
+             "ae_bar[2] = %lf, ae_bar[3] = %lf\n",
+             ae_bar[0], ae_bar[1], ae_bar[2], ae_bar[3]);
+    printf("ao_bar[0] = %lf, ao_bar[1] = %lf, ao_bar[2] = %lf, "
+             "ao_bar[3] = %lf\n",
+             ao_bar[0], ao_bar[1], ao_bar[2], ao_bar[3]);
+
+    printf("a_bar_plus[0,1,2,3] = (%lf, %lf, %lf, %lf)\n",
+           a_bar_plus[0], a_bar_plus[1], a_bar_plus[2], a_bar_plus[3]);
+    printf("a_bar_minus[0,1,2,3] = (%lf, %lf, %lf, %lf)\n",
+           a_bar_minus[0], a_bar_minus[1], a_bar_minus[2], a_bar_minus[3]);
+
+    printf("a_bar_bar_plus[0,1] = (%lf, %lf)\n",
+           a_bar_bar_plus[0], a_bar_bar_plus[1]);
+    printf("a_bar_bar_minus[0,1] = (%lf, %lf)\n",
+           a_bar_bar_minus[0], a_bar_bar_minus[1]);
+
     for (k=0; k<=K+1; k++) {
       double mk = (k==(K+1)) ? 0.0 : compute_m_k(k, g, is_v, 0);
       printf("k=%d, pi[k]=%lf, p[k]=%lf, m[k]=%lf\n", k, pi[k], p[k], mk);
@@ -304,8 +380,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
     printf("p[K-1] = %le, m[K-1] = %le\np_tau = %le, m_tau = %le\n"
              "p[K] = %le, m[K] = %le\np_Delta = %le, m_Delta = %le\n",
            p[K-1], m_Km1, p_tau, m_tau, p[K], m_K, p_Delta, m_Delta);
-    printf("a2 = %lf, a3 = %lf, a4 = %lf, a5 = %lf\n", a[2], a[3], a[4], a[5]);
-    printf("k_bar_plus = %d, k_bar_minus = %d\n", k_bar_plus, k_bar_minus);
   }
 
   // Repeatable part of draw starts here, in case a loop is desired.
