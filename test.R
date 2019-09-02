@@ -10,7 +10,7 @@ theta <- 2.69
 omega <- 0.569
 r <- 4.56
 
-i = 269
+i = 220
 n <- tbl[[i, 'n']]
 y_bar <- tbl[[i, 'y_bar']]
 theta <- tbl[[i, 'theta']]

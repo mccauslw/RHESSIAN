@@ -6,7 +6,7 @@
 
 #include "multi_skew.h"
 #include "skew_spline.h"
-#include "skew_old.h"
+#include "skew.h"
 #include "symmetric_Hermite.h"
 
 void multi_skew_draw_eval(int is_draw, int n_draws, int n_grid_points, int code,

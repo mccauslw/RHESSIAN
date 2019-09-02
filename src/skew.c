@@ -3,17 +3,9 @@
 #include <math.h>
 #include <string.h>
 #include "RNG.h"
-#include "skew_old.h"
+#include "skew.h"
+#include "skew_spline.h"
 #include "symmetric_Hermite.h"
-
-
-#if !defined(MAX)
-#define	MAX(A, B)	((A) > (B) ? (A) : (B))
-#endif
-
-#if !defined(MIN)
-#define	MIN(A, B)	((A) < (B) ? (A) : (B))
-#endif
 
 void skew_draw_parameter_string(Skew_parameters *skew, char *msg)
 {
@@ -26,10 +18,27 @@ void skew_draw_parameter_string(Skew_parameters *skew, char *msg)
             skew->h2, skew->h3, skew->h3*sigma3, skew->h4, skew->h4*sigma4, skew->h5, skew->h5*sigma5);
 }
 
+#define skew_draw_K 20
+
 void skew_draw_eval(Skew_parameters *skew, Symmetric_Hermite *sh,
                     double K_1_threshold, double *K_2_threshold)
 {
 	int i, j;   // Indices
+
+  if (skew->s2_prior > 0.5) {
+    double skew_h[6];
+    double omega = 1.0 / skew->s2_prior;
+    double mu = 0.0; // unused
+    int K = 20;
+    skew_h[2] = skew->h2 + omega;
+    skew_h[3] = skew->h3;
+    skew_h[4] = skew->h4;
+    skew_h[5] = skew->h5;
+    int is_v = (skew->s2_prior * skew->h2 + 1.0) < -4.0;
+    skew_spline_draw_eval(skew->is_draw, K, is_v, skew->mode, skew_h, mu, omega,
+                          &(skew->z), &(skew->log_density));
+    return;
+  }
 
 	// Set secondary parameters
 	double sigma_m2 = -skew->h2;
