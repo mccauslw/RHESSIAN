@@ -11,12 +11,18 @@
 #define max_h 5
 #define max_K 22
 
+// Parameters
+const static double c_k = 0.5;   // Threshold for change in 2nd derivative
+const static double c_p = 0.002; // Minimal last value as fraction of previous
+const static double c_m = 0.002; // Minimal last slope as fraction of previous
+const static double phi_o_lin_trans = 5.0;
+const static double phi_o_tanh_max = 5.0;
+
 // Used options(digits=22), log(sqrt(2/pi)) in R
-const double log_2_pi = 1.837877066409345339082;
-const double p_0 = 2.0;
-const double m_0K = -2.0; // Gives m_0 when m_0K/K normalization is computed.
-const int n_powers = 5;
-const double sign_vector[6] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
+const static double log_2_pi = 1.837877066409345339082;
+const static double p_0 = 2.0;
+const static double m_0K = -2.0; // Gives m_0 when m_0K/K normalization is computed.
+const static int n_powers = 5;
 extern Grid *grids[];
 extern int min_grid_points, max_grid_points;
 
@@ -173,6 +179,13 @@ static inline double phi_odd(double x, double *a)
   phi_o = 0.5 * (phi_plus_abs_x - phi_minus_abs_x);
   if (x < 0.0)
     phi_o = -phi_o;
+
+  if (phi_o > phi_o_lin_trans)
+    phi_o = phi_o_lin_trans
+      + phi_o_tanh_max * tanh((phi_o - phi_o_lin_trans) / phi_o_tanh_max);
+  if (phi_o < -phi_o_lin_trans)
+    phi_o = -phi_o_lin_trans
+      + phi_o_tanh_max * tanh((phi_o + phi_o_lin_trans) / phi_o_tanh_max);
   return phi_o;
 }
 
@@ -266,7 +279,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
     double d2_e = a[2] + a[4] * x2[k];
     double d2_o = a[3] * x1[k] + a[5] * x3[k];
-    double c_k = 0.5;
     if (k_bar_plus < 0 && d2_e + d2_o > c_k * a[2])
       k_bar_plus = k;
     if (k_bar_minus < 0 && d2_e - d2_o > c_k * a[2])
@@ -302,7 +314,6 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   }
 
   // Computation of p[K] and m[K] are based on true computed values
-  double c_p = 0.002, c_m = 0.002;
   double p_tau = p[K], m_tau = compute_m_k(K, g, is_v, false);
   m_Km1 = compute_m_k(K-1, g, is_v, false);
   if (is_v) {
@@ -343,7 +354,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
   pi_total += (pi[K] = 0.5*p[K] - m_K/12);       // Contribution of last knot
   pi_total += (pi[K+1] = 0.5*p_Delta);           // Contribution of tau knot
 
-  if (*z == 16.8125 ) {
+  if (*z == 16.8125) {
     printf("a[2] = %lf, a[3] = %lf, a[4] = %lf, a[5] = %lf\n",
            a[2], a[3], a[4], a[5]);
     printf("k_bar_plus = %d, k_bar_minus = %d\n", k_bar_plus, k_bar_minus);
@@ -373,7 +384,7 @@ void skew_spline_draw_eval(int is_draw, int n_grid_points, int is_v,
 
     for (k=0; k<=K+1; k++) {
       double mk = (k==(K+1)) ? 0.0 : compute_m_k(k, g, is_v, 0);
-      printf("k=%d, pi[k]=%lf, p[k]=%lf, m[k]=%lf\n", k, pi[k], p[k], mk);
+      printf("k=%d, pi[k]=%12.10lf, p[k]=%12.10lf, m[k]=%12.10lf\n", k, pi[k], p[k], mk);
     }
     printf("pi_total=%lf\n", pi_total);
 

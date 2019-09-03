@@ -43,6 +43,9 @@ for (i in 1:n_cases) {
   }
 }
 
+tbl_screen = filter(tbl, omega < 5.0)
+quantile(tbl_screen$e20_1, seq(0.1, 0.9, by=0.1))
+
 tbl <- mutate(tbl, ln_adv = log(e_old) - log(e20_1),
               a3n = a3/(-a2)^1.5, a4n = a4/(-a2)^2, a5n = a5/(-a2)^2.5,
               try1 = ifelse(log(-a2/omega) < -2, e_old, ifelse(log(-a2/omega) > -1, e20_1, e20_0)))
@@ -54,7 +57,8 @@ mylm <- lm(formula = ln_adv ~ log(-a2) + abs(a3n) + abs(a4n), data = tbl)
 summary(mylm)
 
 plot(tbl$a2, tbl$a3, pch=20, xlim=c(-3, 0), ylim = c(-1, 0.5))
-points(tbl$a2[tbl$ln_adv>0], tbl$a3[tbl$ln_adv>0], col='red')
+points(tbl$a2[tbl$e20_1_best], tbl$a3[tbl$e20_1_best], col='red')
+points(tbl$a2[tbl$e20_0_best], tbl$a3[tbl$e20_0_best], col='green')
 
 plot(log(abs(tbl$a3)), log(tbl$omega), pch=20)
 points(log(abs(tbl$a3)[tbl$ln_adv>0]), log(tbl$omega[tbl$ln_adv>0]), col='red')

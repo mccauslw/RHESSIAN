@@ -17,7 +17,7 @@ typedef struct {
 	double u_sign;
 	int is_draw;
 	double z;
-    int n_reject;
+  int n_reject;
 	double log_density;
 } Skew_parameters;
 
