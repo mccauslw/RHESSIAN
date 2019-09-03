@@ -7,7 +7,7 @@ tbl <- tibble(r = rgamma(n_cases, 2, rate=0.1),
               y_bar = rnbinom(n_cases, size=r/4, mu=theta)/n,
               omega = rgamma(n_cases, 2, rate=0.2),
               a2 = 0, a3 = 0, a4 = 0, a5 = 0,
-              e_old = 0, e20_0 = 0, e20_1 = 0)
+              e_old = 0, e20_0 = 0, e20_1 = 0, best = 2)
 
 #Po_GaPo <- function(n, y_bar, r, theta, omega, mode=0, x_max, n_pos=1000)
 
@@ -44,12 +44,21 @@ for (i in 1:n_cases) {
 }
 
 tbl <- mutate(tbl, ln_adv = log(e_old) - log(e20_1),
-              a3n = a3/(-a2)^1.5, a4n = a4/(-a2)^2, a5n = a5/(-a2)^2.5)
+              a3n = a3/(-a2)^1.5, a4n = a4/(-a2)^2, a5n = a5/(-a2)^2.5,
+              try1 = ifelse(log(-a2/omega) < -2, e_old, ifelse(log(-a2/omega) > -1, e20_1, e20_0)))
+
+tbl$best[tbl$e20_0 < tbl$e20_1 & tbl$e20_0 < tbl$e_old] = 0
+tbl$best[tbl$e20_1 < tbl$e20_0 & tbl$e20_1 < tbl$e_old] = 1
 
 mylm <- lm(formula = ln_adv ~ log(-a2) + abs(a3n) + abs(a4n), data = tbl)
 summary(mylm)
 
 plot(tbl$a2, tbl$a3, pch=20, xlim=c(-3, 0), ylim = c(-1, 0.5))
 points(tbl$a2[tbl$ln_adv>0], tbl$a3[tbl$ln_adv>0], col='red')
+
+plot(log(abs(tbl$a3)), log(tbl$omega), pch=20)
+points(log(abs(tbl$a3)[tbl$ln_adv>0]), log(tbl$omega[tbl$ln_adv>0]), col='red')
+
+ggplot(tbl, aes(x=log(abs(a2)), y=log(omega), color=best)) + geom_point()
 
 
